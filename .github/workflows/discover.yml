@@ -2,7 +2,7 @@ name: discover
 
 on:
   schedule:
-    - cron: "10 11 * * *"    # daily, 11:10 UTC (~6-7am US Eastern)
+    - cron: "10 11 * * *"    # daily, 11:10 UTC (~4am Pacific)
   workflow_dispatch:
 
 concurrency:
@@ -11,6 +11,10 @@ concurrency:
 
 permissions:
   contents: write
+
+defaults:
+  run:
+    working-directory: job-alert-agent
 
 jobs:
   discover:
@@ -22,13 +26,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: job-alert-agent/requirements.txt
       - run: pip install -r requirements.txt
       - name: Restore state
         run: bash scripts/restore_state.sh
       - name: Restore HTTP cache
         uses: actions/cache@v4
         with:
-          path: data/http_cache
+          path: job-alert-agent/data/http_cache
           key: http-cache-${{ github.run_id }}
           restore-keys: http-cache-
       - name: Discover companies

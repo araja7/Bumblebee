@@ -22,7 +22,9 @@ def lm(cfg):
     ("Brooklyn, NY", "new_york"), ("Manhattan", "new_york"), ("Queens, New York", "new_york"),
     ("New York, New York, United States", "new_york"), ("NY, NY", "new_york"), ("US-NY-New York", "new_york"),
     ("Long Island City, NY", "new_york"), ("The Bronx", "new_york"), ("New York, NY (HQ)", "new_york"),
+    ("Bellevue, WA", "seattle"), ("Redmond, WA", "seattle"), ("Kirkland, WA", "seattle"),
     # Boston
+    ("Cambridge, MA", "boston"), ("Cambridge, Massachusetts", "boston"), ("Somerville, MA", "boston"),
     ("Boston, MA", "boston"), ("Boston", "boston"), ("Boston, Massachusetts", "boston"),
     # Chicago
     ("Chicago, IL", "chicago"), ("Chicago", "chicago"), ("Chicago, Illinois, United States", "chicago"),
@@ -42,7 +44,7 @@ def test_metro_variants(lm, loc, metro):
     "Austin, TX",
     "London, UK",
     "Toronto, Canada",
-    "Bellevue, WA",               # not Seattle unless you opt in via config
+    "Cambridge, UK",
     "Newark, NJ",
     "United States",
 ])
