@@ -117,8 +117,8 @@ LOG_FORMAT=json python -m job_alert run                             # JSON log l
   NY"), and look-alikes don't ("Albany, New York", "South San Francisco",
   "Manhattan Beach"). Remote-only postings are excluded, as are "Remote - NYC"
   style entries and roles whose `workplaceType` is remote. A hybrid NYC role
-  that also lists "Remote (US)" still matches. Bellevue/Redmond and
-  Cambridge/Somerville are commented out in the config; uncomment to include them.
+  that also lists "Remote (US)" still matches. Bellevue/Redmond/Kirkland count as
+  Seattle, and Cambridge MA/Somerville count as Boston.
 - **Recency:** posted within 24h. Jobs with no posting date pass, because
   dedupe guarantees they're new to us.
 
@@ -209,31 +209,54 @@ Simple, free, and the fastest reaction time. **But it only runs while the
 machine is awake.** A sleeping laptop misses runs, so this is best on an
 always-on box: a desktop, a Raspberry Pi, or a $5 VPS.
 
-### Option B: GitHub Actions
+### Option B: GitHub Actions (what this repo uses)
 
-`.github/workflows/check-jobs.yml` runs every 15 minutes and `discover.yml`
-runs daily. They share a concurrency group, so they never write the DB at the
-same time. The SQLite DB persists on a `state` branch, force-pushed as a
-single commit each run so history doesn't bloat. The large GitHub listing
-files use `actions/cache`. Setup: push this directory as its own repo, then
-add repo secrets `SMTP_USER`, `SMTP_PASSWORD`, `MY_PHONE_NUMBER`,
-`MY_CARRIER` (plus optional `SMTP_HOST`, `SMTP_PORT`, `NTFY_TOPIC`). Then run
-`discover` once and `check-jobs` once from the Actions tab; the first
-check-jobs run seeds silently.
+The workflows live at the **repo root** in `.github/workflows/`, because
+GitHub ignores workflow files in subdirectories. They `cd` into
+`job-alert-agent/`:
+
+- `check-jobs.yml`: every 15 minutes.
+- `discover.yml`: daily at 11:10 UTC.
+- `test-notify.yml`: manual only. It sends one test message using the repo
+  secrets.
+
+All three share a concurrency group, so they never write the DB at the same
+time. The SQLite DB persists on a `state` branch, force-pushed as a single
+commit each run so history doesn't bloat. The large GitHub listing files use
+`actions/cache`.
+
+**Credentials live only in GitHub secrets.** Go to Settings -> Secrets and
+variables -> Actions -> New repository secret. Nothing sensitive goes in the
+repo or in a local `.env`.
+
+| secret | value |
+|---|---|
+| `MY_PHONE_NUMBER` | 10 digits |
+| `MY_CARRIER` | e.g. `xfinity` |
+| `SMTP_USER` | your Gmail address (texts) |
+| `SMTP_PASSWORD` | Gmail app password (texts) |
+| `NTFY_TOPIC` | *or* this instead, for ntfy push with no password at all |
+
+`notifier.type: auto` picks texts when the SMTP secrets exist, otherwise
+ntfy. **Until one of `SMTP_PASSWORD` / `NTFY_TOPIC` exists, check-jobs skips
+itself.** So alerts turn on the moment you add one. Then:
+
+1. Actions -> **test-notify** -> Run workflow, and check your phone.
+2. The next check-jobs run seeds silently (empty DB). Texts start with the
+   run after that.
 
 Tradeoffs:
 - Scheduled runs are often delayed 5-20 minutes when GitHub is busy.
-- A run takes ~4 minutes with ~500 companies. At 96 runs/day that's far
-  beyond the 2,000 free minutes/month of a **private** repo. **Public** repos
-  get unlimited minutes, but then your config and the seen-jobs DB are
-  public. Secrets stay secret either way.
+- A run takes ~4 minutes with ~500 companies. That's free in a **public**
+  repo, but at 96 runs/day it would far exceed a private repo's 2,000 free
+  minutes/month. In a public repo, `config.yaml` and the `state` branch (the
+  company list plus seen jobs) are public. Secrets are not.
 - GitHub disables schedules in public repos after 60 days without repo
   activity; re-enable from the Actions tab if that happens.
 
-**Recommendation:** use **cron on an always-on machine** if you have one.
-It's the most reliable and timely option, and it's private. Otherwise use
-**GitHub Actions in a public repo**: always on and free, at the cost of some
-schedule jitter and a public config.
+**Recommendation:** cron on an always-on machine is the most timely and
+private option. Otherwise use GitHub Actions in a public repo: always on and
+free, at the cost of schedule jitter and a public config.
 
 ## Layout
 

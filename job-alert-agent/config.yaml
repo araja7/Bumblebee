@@ -98,9 +98,7 @@ criteria:
 locations:
   seattle:
     short: Seattle
-    aliases: [seattle, south lake union]
-    # Uncomment to include the Eastside:
-    # aliases: [seattle, south lake union, bellevue, redmond, kirkland]
+    aliases: [seattle, south lake union, bellevue, redmond, kirkland]   # incl. the Eastside
   san_francisco:
     short: SF
     aliases: [sf, s f, sfo, sf bay area, soma]
@@ -120,9 +118,9 @@ locations:
       - '\bmanhattan\s*,\s*(ks|kansas)\b'
   boston:
     short: Boston
-    aliases: [boston, back bay, seaport]
-    # Uncomment to include Cambridge/Somerville:
-    # patterns: ['\bcambridge\s*,\s*(ma|massachusetts)\b', '\bsomerville\b']
+    aliases: [boston, back bay, seaport, somerville]
+    patterns:
+      - '\bcambridge\s*,\s*(ma|massachusetts)\b'   # not Cambridge, UK
   chicago:
     short: Chicago
     aliases: [chicago, river north, fulton market, the loop]
@@ -175,7 +173,8 @@ discovery:
   max_validations_per_run: 500
 
 notifier:
-  type: email_sms              # email_sms | ntfy
+  # auto: texts if SMTP_USER+SMTP_PASSWORD are set, else ntfy if NTFY_TOPIC is set.
+  type: auto                   # auto | email_sms | ntfy
   max_chars: 140
   batch_threshold: 5           # more than this many new jobs in a run => batched
   batch_max_items: 8           # jobs per batched message

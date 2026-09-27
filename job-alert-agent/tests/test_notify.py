@@ -114,7 +114,19 @@ def test_build_notifier_xfinity_uses_verizon_gateway(cfg, monkeypatch):
     assert n.password == "abcdefghijklmnop"
 
 
+def test_build_notifier_auto(cfg, monkeypatch):
+    _cfg_with_env(cfg, monkeypatch)
+    with pytest.raises(ConfigError, match="No notifier configured"):
+        build_notifier(cfg)
+    _cfg_with_env(cfg, monkeypatch, NTFY_TOPIC="t")
+    assert isinstance(build_notifier(cfg), NtfyNotifier)
+    _cfg_with_env(cfg, monkeypatch, NTFY_TOPIC="t", SMTP_USER="me@gmail.com", SMTP_PASSWORD="pw",
+                  MY_PHONE_NUMBER="4253058801", MY_CARRIER="xfinity")
+    assert isinstance(build_notifier(cfg), EmailSMSNotifier)
+
+
 def test_build_notifier_errors(cfg, monkeypatch):
+    cfg.raw["notifier"]["type"] = "email_sms"
     _cfg_with_env(cfg, monkeypatch)
     with pytest.raises(ConfigError, match="Missing"):
         build_notifier(cfg)
@@ -127,7 +139,7 @@ def test_build_notifier_errors(cfg, monkeypatch):
         build_notifier(cfg)
 
 
-def test_build_ntfy(cfg, monkeypatch):
+def test_build_ntfy_explicit(cfg, monkeypatch):
     _cfg_with_env(cfg, monkeypatch, NTFY_TOPIC="secret-topic-123")
     cfg.raw["notifier"]["type"] = "ntfy"
     assert isinstance(build_notifier(cfg), NtfyNotifier)

@@ -16,14 +16,22 @@ def build_notifier(cfg: Config, dry_run: bool = False) -> Notifier:
     if dry_run:
         return ConsoleNotifier()
     ncfg = cfg["notifier"]
-    kind = ncfg.get("type", "email_sms")
+    kind = ncfg.get("type", "auto")
+    if kind == "auto":
+        if env("SMTP_USER") and env("SMTP_PASSWORD"):
+            kind = "email_sms"
+        elif env("NTFY_TOPIC"):
+            kind = "ntfy"
+        else:
+            raise ConfigError("No notifier configured: set SMTP_USER + SMTP_PASSWORD (texts) "
+                              "or NTFY_TOPIC (ntfy push) in .env or GitHub secrets")
     if kind == "ntfy":
         topic = env("NTFY_TOPIC") or ncfg.get("ntfy", {}).get("topic")
         if not topic:
             raise ConfigError("notifier.type is 'ntfy' but NTFY_TOPIC is not set in .env")
         return NtfyNotifier(ncfg.get("ntfy", {}).get("server", "https://ntfy.sh"), topic)
     if kind != "email_sms":
-        raise ConfigError(f"Unknown notifier.type {kind!r} (expected email_sms or ntfy)")
+        raise ConfigError(f"Unknown notifier.type {kind!r} (expected auto, email_sms, or ntfy)")
 
     missing = [k for k in ("SMTP_USER", "SMTP_PASSWORD", "MY_PHONE_NUMBER", "MY_CARRIER") if not env(k)]
     if missing:

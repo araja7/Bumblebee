@@ -1,0 +1,77 @@
+name: check-jobs
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # GitHub may delay scheduled runs by several minutes under load
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print messages instead of sending"
+        type: boolean
+        default: false
+
+# check-jobs, discover, and test-notify all touch the DB; never run concurrently.
+concurrency:
+  group: job-alert-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # push the state branch
+
+defaults:
+  run:
+    working-directory: job-alert-agent
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    env:
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      MY_PHONE_NUMBER: ${{ secrets.MY_PHONE_NUMBER }}
+      MY_CARRIER: ${{ secrets.MY_CARRIER }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      LOG_FORMAT: json
+    steps:
+      # Alerts stay off until you add a notifier secret (SMTP_PASSWORD or NTFY_TOPIC).
+      - name: Check notifier secrets
+        id: gate
+        working-directory: .
+        run: |
+          if [ -n "$SMTP_PASSWORD" ] || [ -n "$NTFY_TOPIC" ] || [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No SMTP_PASSWORD or NTFY_TOPIC secret yet; skipping (alerts disabled)."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.enabled == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: job-alert-agent/requirements.txt
+      - if: steps.gate.outputs.enabled == 'true'
+        run: pip install -r requirements.txt
+      - name: Restore state
+        if: steps.gate.outputs.enabled == 'true'
+        run: bash scripts/restore_state.sh
+      - name: Restore HTTP cache (large GitHub listing files, ETag-validated)
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/cache@v4
+        with:
+          path: job-alert-agent/data/http_cache
+          key: http-cache-${{ github.run_id }}
+          restore-keys: http-cache-
+      - name: Check jobs
+        if: steps.gate.outputs.enabled == 'true'
+        run: python -m job_alert run ${{ inputs.dry_run && '--dry-run' || '' }}
+      - name: Save state
+        if: steps.gate.outputs.enabled == 'true' && !inputs.dry_run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/save_state.sh

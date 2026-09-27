@@ -1,0 +1,33 @@
+name: test-notify
+
+# Manual only: Actions tab -> test-notify -> Run workflow. Sends one test message
+# using the repo secrets, so your credentials never need to be on a local machine.
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: job-alert-agent
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: job-alert-agent/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Send test message
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MY_PHONE_NUMBER: ${{ secrets.MY_PHONE_NUMBER }}
+          MY_CARRIER: ${{ secrets.MY_CARRIER }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python -m job_alert test-notify
