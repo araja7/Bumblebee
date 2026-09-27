@@ -34,17 +34,18 @@ jobs:
       MY_PHONE_NUMBER: ${{ secrets.MY_PHONE_NUMBER }}
       MY_CARRIER: ${{ secrets.MY_CARRIER }}
       NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       LOG_FORMAT: json
     steps:
-      # Alerts stay off until you add a notifier secret (SMTP_PASSWORD or NTFY_TOPIC).
+      # Alerts stay off until you add a notifier secret (DISCORD_WEBHOOK_URL, SMTP_PASSWORD, or NTFY_TOPIC).
       - name: Check notifier secrets
         id: gate
         working-directory: .
         run: |
-          if [ -n "$SMTP_PASSWORD" ] || [ -n "$NTFY_TOPIC" ] || [ "${{ inputs.dry_run }}" = "true" ]; then
+          if [ -n "$DISCORD_WEBHOOK_URL" ] || [ -n "$SMTP_PASSWORD" ] || [ -n "$NTFY_TOPIC" ] || [ "${{ inputs.dry_run }}" = "true" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::No SMTP_PASSWORD or NTFY_TOPIC secret yet; skipping (alerts disabled)."
+            echo "::notice::No DISCORD_WEBHOOK_URL, SMTP_PASSWORD, or NTFY_TOPIC secret yet; skipping (alerts disabled)."
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v4

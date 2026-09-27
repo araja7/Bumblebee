@@ -10,6 +10,7 @@ from job_alert.config import Config
 from job_alert.notify import ConfigError, ConsoleNotifier, NotifyError, build_notifier
 from job_alert.notify.base import format_job_line, to_ascii
 from job_alert.notify.email_sms import EmailSMSNotifier
+from job_alert.notify.discord import DiscordNotifier
 from job_alert.notify.ntfy import NtfyNotifier
 from tests.conftest import NOW, FakeHttp, make_job
 
@@ -97,7 +98,8 @@ def test_failed_send_leaves_jobs_unseen_for_retry(cfg, db):
 
 
 def _cfg_with_env(cfg, monkeypatch, **env):
-    for k in ("SMTP_USER", "SMTP_PASSWORD", "MY_PHONE_NUMBER", "MY_CARRIER", "SMTP_HOST", "SMTP_PORT", "NTFY_TOPIC"):
+    for k in ("SMTP_USER", "SMTP_PASSWORD", "MY_PHONE_NUMBER", "MY_CARRIER", "SMTP_HOST", "SMTP_PORT", "NTFY_TOPIC",
+              "DISCORD_WEBHOOK_URL"):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -204,3 +206,67 @@ def test_batch_lines_not_squeezed(cfg, db):
                      matched_metros=["seattle"]) for i in range(6)]
     _agent(cfg, db, n)._notify(RunSummary(matches=jobs))
     assert "Software Development Engineer, Distributed Storage Systems, New Grad (Seattle)" in n.sent[0]
+
+
+WEBHOOK = "https://discord.com/api/webhooks/123/abc"
+
+
+def test_auto_prefers_discord(cfg, monkeypatch):
+    _cfg_with_env(cfg, monkeypatch, DISCORD_WEBHOOK_URL=WEBHOOK, SMTP_USER="me@gmail.com", SMTP_PASSWORD="pw",
+                  MY_PHONE_NUMBER="4253058801", MY_CARRIER="xfinity", NTFY_TOPIC="t")
+    assert isinstance(build_notifier(cfg), DiscordNotifier)
+    assert build_notifier(cfg, dry_run=True).sms_like is False
+
+
+def test_discord_rejects_non_webhook_url(cfg, monkeypatch):
+    _cfg_with_env(cfg, monkeypatch, DISCORD_WEBHOOK_URL="https://evil.example/hook")
+    with pytest.raises(ConfigError, match="discord.com/api/webhooks"):
+        build_notifier(cfg)
+
+
+def _discord(*responses):
+    session = mock.Mock()
+    session.post.side_effect = list(responses)
+    return DiscordNotifier(WEBHOOK, session=session), session
+
+
+def test_discord_posts_without_mentions():
+    n, session = _discord(mock.Mock(status_code=204))
+    n.send("Acme - SWE (NYC) https://x @everyone")
+    args, kwargs = session.post.call_args
+    assert args[0] == WEBHOOK and kwargs["timeout"]
+    assert kwargs["json"]["content"].startswith("Acme - SWE")
+    assert kwargs["json"]["allowed_mentions"] == {"parse": []}
+    assert "flags" not in kwargs["json"]
+
+
+def test_discord_batch_suppresses_previews_and_truncates():
+    n, session = _discord(mock.Mock(status_code=204))
+    n.send("x" * 2500, batch=True)
+    payload = session.post.call_args.kwargs["json"]
+    assert payload["flags"] == 4 and len(payload["content"]) == 2000
+
+
+def test_discord_retries_on_429(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    limited = mock.Mock(status_code=429)
+    limited.json.return_value = {"retry_after": 0.5}
+    n, session = _discord(limited, mock.Mock(status_code=204))
+    n.send("hi")
+    assert session.post.call_count == 2
+
+
+def test_discord_deleted_webhook_is_clear():
+    n, _ = _discord(mock.Mock(status_code=404, text="Unknown Webhook"))
+    with pytest.raises(NotifyError, match="DISCORD_WEBHOOK_URL"):
+        n.send("hi")
+
+
+def test_non_sms_channel_gets_full_titles(cfg, db):
+    title = "Software Development Engineer, Distributed Storage Systems and Data Protection, New Grad 2027"
+    job = make_job(title=title, url="https://remitly.wd5.myworkdayjobs.com/" + "x" * 90, matched_metros=["seattle"])
+    sms, chat = ConsoleNotifier(sms_like=True), ConsoleNotifier(sms_like=False)
+    _agent(cfg, db, sms, dry_run=True)._notify(RunSummary(matches=[job]))
+    _agent(cfg, db, chat, dry_run=True)._notify(RunSummary(matches=[job]))
+    assert "..." in sms.sent[0]
+    assert title in chat.sent[0]

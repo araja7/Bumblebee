@@ -16,6 +16,7 @@ class ConfigError(Exception):
 
 class Notifier(ABC):
     channel: str = "base"
+    sms_like: bool = False   # True => keep singles under notifier.max_chars
 
     @abstractmethod
     def send(self, message: str, *, title: str | None = None, url: str | None = None,
@@ -49,7 +50,7 @@ def format_job_line(company: str, title: str, loc: str, url: str, max_chars: int
     company, title, loc = to_ascii(company), to_ascii(title), to_ascii(loc)
     suffix = f" ({loc}) {url}" if loc else f" {url}"
     if max_chars is None:
-        return f"{_truncate(company, 30)} - {_truncate(title, 80)}{suffix}"
+        return f"{_truncate(company, 40)} - {_truncate(title, 150)}{suffix}"
     budget = max(max_chars - len(suffix), MIN_HEAD)
     head = f"{company} - {title}"
     if len(head) > budget:

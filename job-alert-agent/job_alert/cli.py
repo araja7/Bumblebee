@@ -150,7 +150,7 @@ def cmd_test_notify(cfg: Config, args: argparse.Namespace) -> int:
         return 2
     db = DB(cfg.path("db"))
     stamp = datetime.now().strftime("%H:%M")
-    msg = f"job-alert-agent test {stamp}: if you can read this, texts work."
+    msg = f"job-alert-agent test {stamp}: if you can read this, alerts work."
     print(f"Sending test via {notifier.describe()} ...")
     try:
         notifier.send(msg, title="job-alert-agent test")
@@ -158,6 +158,9 @@ def cmd_test_notify(cfg: Config, args: argparse.Namespace) -> int:
         print(f"\nFAILED: {e}", file=sys.stderr)
         return 1
     db.log_notification("test", 0, msg)
+    if notifier.channel != "email_sms":
+        print(f'\nSent: "{msg}"\nIt should show up within seconds. If it doesn\'t, re-check the secret/URL.')
+        return 0
     print(f"""
 The message was accepted for delivery: "{msg}"
 

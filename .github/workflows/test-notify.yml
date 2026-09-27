@@ -30,4 +30,5 @@ jobs:
           MY_PHONE_NUMBER: ${{ secrets.MY_PHONE_NUMBER }}
           MY_CARRIER: ${{ secrets.MY_CARRIER }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: python -m job_alert test-notify

@@ -13,6 +13,7 @@ log = get_logger(__name__)
 
 class EmailSMSNotifier(Notifier):
     channel = "email_sms"
+    sms_like = True
 
     def __init__(self, host: str, port: int, user: str, password: str, number: str,
                  sms_domain: str, mms_domain: str | None = None, batch_via_mms: bool = True,
