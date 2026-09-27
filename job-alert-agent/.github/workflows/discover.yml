@@ -1,0 +1,41 @@
+name: discover
+
+on:
+  schedule:
+    - cron: "10 11 * * *"    # daily, 11:10 UTC (~6-7am US Eastern)
+  workflow_dispatch:
+
+concurrency:
+  group: job-alert-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Restore state
+        run: bash scripts/restore_state.sh
+      - name: Restore HTTP cache
+        uses: actions/cache@v4
+        with:
+          path: data/http_cache
+          key: http-cache-${{ github.run_id }}
+          restore-keys: http-cache-
+      - name: Discover companies
+        env:
+          LOG_FORMAT: json
+        run: python -m job_alert discover
+      - name: Save state
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/save_state.sh

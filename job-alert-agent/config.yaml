@@ -1,0 +1,200 @@
+# job-alert-agent configuration. Secrets live in .env, not here.
+
+paths:
+  db: data/jobs.db
+  http_cache: data/http_cache
+  companies_seed: companies.yaml
+  candidate_names: candidate_names.txt
+
+criteria:
+  # A title must contain at least one `include` keyword...
+  title_include:
+    - software engineer
+    - software developer
+    - software development engineer   # added: Amazon-style "SDE" titles
+    - sde                             # added
+    - backend
+    - back end
+    - frontend
+    - front end
+    - full stack
+    - fullstack
+    - new grad
+    - entry level
+    - associate
+    - swe i
+    - engineer i
+    - university grad
+  # ...AND at least one of these, so e.g. "Associate Counsel" or
+  # "New Grad Product Designer" don't slip through on a level keyword alone.
+  title_require_any:
+    - engineer
+    - engineering
+    - developer
+    - software
+    - swe
+    - sde
+    - programmer
+  # Any of these (whole-word, case-insensitive) rejects the title.
+  title_exclude:
+    - senior
+    - sr
+    - staff
+    - principal
+    - lead
+    - manager
+    - director
+    - intern
+    - internship
+    - ii
+    - iii
+    - iv
+    - architect
+    - sales
+    - data scientist
+    # added: non-software engineering disciplines (the generic "engineer I" /
+    # "associate" keywords otherwise let these through)
+    - hardware
+    - mechanical
+    - electrical
+    - civil
+    - chemical
+    - structural
+    - rf
+    - pcb
+    - fpga
+    - asic
+    - analog
+    - thermal
+    - avionics
+    - propulsion
+    - electromechanical
+    - manufacturing
+    - supplier
+    # added: intern-equivalents
+    - co op
+    - coop
+  # Regexes (case-insensitive) that also reject a title.
+  title_exclude_patterns:
+    - '\b(engineer|developer|swe|sde)\s*[-,]?\s*(2|3|4|5)\b'   # "Software Engineer 2"
+    - '\blevel\s*(2|3|4|5)\b'
+    - '\b(summer|fall|winter|spring)\s*(term\s*)?20\d\d\b'     # "(Summer 2027)" = intern/co-op term
+    - '^(?!.*\b(software|developer|data)\b).*\bquality\b'        # hardware QA, but not "Software Engineer, Data Quality"
+
+  # Reject if the description's *required* experience (not "preferred") has a
+  # minimum above this. 2 => "3+ years" or higher is rejected.
+  max_years_experience: 2
+
+  # Only alert on jobs posted within this window. Jobs whose source gives no
+  # posting date pass (they're new to us because dedupe hasn't seen them).
+  max_age_hours: 24
+
+  allow_remote: false
+
+# On-site/hybrid metros. A posting matches if ANY of its locations matches.
+#  aliases:  whole-word, case-insensitive literals
+#  patterns: case-insensitive regexes (for ambiguous names)
+#  short:    label used in text messages
+locations:
+  seattle:
+    short: Seattle
+    aliases: [seattle, south lake union]
+    # Uncomment to include the Eastside:
+    # aliases: [seattle, south lake union, bellevue, redmond, kirkland]
+  san_francisco:
+    short: SF
+    aliases: [sf, s f, sfo, sf bay area, soma]
+    patterns:
+      - '(?<!south )\bsan francisco\b'
+  new_york:
+    short: NYC
+    aliases: [nyc, new york city, manhattan, brooklyn, queens, bronx, the bronx, staten island, long island city]
+    patterns:
+      # "New York" in city position ("New York, NY", "NY - New York"), but not
+      # in state position ("Albany, New York").
+      - '(?:^|[^,\s])\s*\bnew york\b'
+      - '\bnew york\s*(?:city|,\s*ny\b|,\s*new york\b|ny\b)'
+      - '\bny\s*,\s*ny\b'
+    exclude_patterns:
+      - '\bmanhattan\s*beach\b'
+      - '\bmanhattan\s*,\s*(ks|kansas)\b'
+  boston:
+    short: Boston
+    aliases: [boston, back bay, seaport]
+    # Uncomment to include Cambridge/Somerville:
+    # patterns: ['\bcambridge\s*,\s*(ma|massachusetts)\b', '\bsomerville\b']
+  chicago:
+    short: Chicago
+    aliases: [chicago, river north, fulton market, the loop]
+
+sources:
+  greenhouse: {enabled: true}
+  lever: {enabled: true}
+  ashby: {enabled: true}
+  simplify:
+    enabled: true
+    url: https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json
+
+scheduling:
+  # Companies with at least one posting in your metros get checked every run.
+  # Others are checked at most this often, to keep each run fast and polite.
+  low_relevance_interval_minutes: 60
+
+http:
+  user_agent: "job-alert-agent/0.1 (personal new-grad job alert bot)"
+  connect_timeout: 5
+  read_timeout: 30
+  max_retries: 3
+  backoff_base: 1.5          # seconds; doubles each retry, plus jitter
+  default_min_interval: 1.0  # seconds between requests to the same host
+  host_min_interval:
+    boards-api.greenhouse.io: 0.5
+    api.lever.co: 1.0        # robots.txt Crawl-delay: 1
+    api.ashbyhq.com: 0.5
+    raw.githubusercontent.com: 1.0
+  respect_robots: true
+
+discovery:
+  # Public GitHub lists mined for ATS links. `json` = Simplify listings format;
+  # `markdown` = any README/markdown table (links are regex-extracted).
+  github_lists:
+    - {name: SimplifyJobs/New-Grad-Positions, format: json, url: "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json"}
+    - {name: speedyapply/2027-SWE-College-Jobs, format: markdown, url: "https://raw.githubusercontent.com/speedyapply/2027-SWE-College-Jobs/main/NEW_GRAD_USA.md"}
+    - {name: vanshb03/New-Grad-2027, format: markdown, url: "https://raw.githubusercontent.com/vanshb03/New-Grad-2027/dev/README.md"}
+    # Optional: intern lists surface ~450 more boards (many also hire new grads),
+    # at the cost of longer runs.
+    # - {name: SimplifyJobs/Summer2026-Internships, format: json, url: "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/.github/scripts/listings.json"}
+  # Only mine listings updated within this many days (older links go stale).
+  max_listing_age_days: 180
+  probe:
+    max_probes_per_run: 60
+    negative_cache_days: 30
+    min_interval: 0.5           # seconds between probes to the same host (2 req/s)
+    ats_order: [greenhouse, ashby, lever]
+  dead_after_consecutive_404s: 3
+  max_validations_per_run: 500
+
+notifier:
+  type: email_sms              # email_sms | ntfy
+  max_chars: 140
+  batch_threshold: 5           # more than this many new jobs in a run => batched
+  batch_max_items: 8           # jobs per batched message
+  batch_via_mms: true          # send batches to the MMS gateway (longer limit)
+  daily_cap: 30                # max texts per calendar day (local time)
+  ntfy:
+    server: https://ntfy.sh
+    # topic comes from NTFY_TOPIC in .env
+
+# Email-to-SMS/MMS gateways: {number}@{domain}. These change; verify yours.
+carriers:
+  xfinity:      {sms: vtext.com, mms: vzwpix.com}    # Xfinity Mobile rides Verizon
+  verizon:      {sms: vtext.com, mms: vzwpix.com}
+  tmobile:      {sms: tmomail.net, mms: tmomail.net}
+  mint:         {sms: tmomail.net, mms: tmomail.net}
+  metro_pcs:    {sms: mymetropcs.com, mms: mymetropcs.com}
+  att:          {sms: txt.att.net, mms: mms.att.net}  # DISCONTINUED by AT&T in 2025
+  cricket:      {sms: sms.cricketwireless.net, mms: mms.cricketwireless.net}
+  us_cellular:  {sms: email.uscc.net, mms: mms.uscc.net}
+  boost:        {sms: sms.myboostmobile.com, mms: myboostmobile.com}
+  google_fi:    {sms: msg.fi.google.com, mms: msg.fi.google.com}
+  consumer_cellular: {sms: mailmymobile.net, mms: mailmymobile.net}

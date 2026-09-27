@@ -1,0 +1,22 @@
+# Company names to probe for Greenhouse/Lever/Ashby boards during `discover`.
+# One per line. These are tried before names mined from GitHub lists.
+Jane Street
+Two Sigma
+Hudson River Trading
+Citadel Securities
+Retool
+Figure
+Mercury
+Rippling
+Watershed
+Hebbia
+Glean
+Sigma Computing
+Hex
+dbt Labs
+Temporal
+Airtable
+Faire
+Carta
+Grafana Labs
+Postman

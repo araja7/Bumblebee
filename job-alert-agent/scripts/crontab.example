@@ -1,0 +1,14 @@
+# job-alert-agent cron entries. Install with `crontab -e` and paste, after
+# replacing /path/to/job-alert-agent. Logs go to data/*.log.
+#
+# macOS note: give cron Full Disk Access (System Settings > Privacy & Security)
+# or it can't read files in ~/Documents etc. Cron does NOT run while the Mac sleeps.
+
+SHELL=/bin/bash
+JA=/path/to/job-alert-agent
+
+# Check for new jobs every 15 minutes
+*/15 * * * * cd $JA && .venv/bin/python -m job_alert run >> data/run.log 2>&1
+
+# Discover new companies daily at 06:10 local time
+10 6 * * * cd $JA && .venv/bin/python -m job_alert discover >> data/discover.log 2>&1
