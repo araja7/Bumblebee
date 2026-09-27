@@ -56,6 +56,23 @@ gateways truncate or split long messages.
 > fine for you, stop working later, or never arrive. That's why the notifier
 > is pluggable and **ntfy.sh is built in as a fallback.**
 
+### Discord (no email or password needed)
+
+1. In a Discord server you own (create one if needed: "+" -> Create My Own),
+   pick or create a channel such as `#job-alerts`.
+2. Open the channel's settings (gear icon) -> Integrations -> Webhooks ->
+   New Webhook -> **Copy Webhook URL**.
+3. Save it as the `DISCORD_WEBHOOK_URL` secret, or put it in `.env` for local
+   runs. Treat it like a password: anyone with the URL can post to that
+   channel. If it leaks, delete the webhook and make a new one.
+4. Enable mobile push for that channel in the Discord app (long-press the
+   channel -> Notification Settings -> All Messages).
+
+Discord messages aren't squeezed to 140 characters, so you get full titles,
+and each single-job message shows a link preview. Batches of more than 5 turn
+previews off to stay readable. `@everyone`-style mentions in job titles are
+disabled.
+
 ### Verify delivery first
 
 ```bash
@@ -231,15 +248,15 @@ repo or in a local `.env`.
 
 | secret | value |
 |---|---|
-| `MY_PHONE_NUMBER` | 10 digits |
-| `MY_CARRIER` | e.g. `xfinity` |
-| `SMTP_USER` | your Gmail address (texts) |
-| `SMTP_PASSWORD` | Gmail app password (texts) |
-| `NTFY_TOPIC` | *or* this instead, for ntfy push with no password at all |
+| `DISCORD_WEBHOOK_URL` | Discord channel webhook (see below) |
+| `SMTP_USER` + `SMTP_PASSWORD` | *or* Gmail address + app password, for texts |
+| `MY_PHONE_NUMBER`, `MY_CARRIER` | only needed for texts |
+| `NTFY_TOPIC` | *or* ntfy push, with no account at all |
 
-`notifier.type: auto` picks texts when the SMTP secrets exist, otherwise
-ntfy. **Until one of `SMTP_PASSWORD` / `NTFY_TOPIC` exists, check-jobs skips
-itself.** So alerts turn on the moment you add one. Then:
+`notifier.type: auto` uses the first of Discord, texts, and ntfy whose
+secrets exist. **Until one of `DISCORD_WEBHOOK_URL` / `SMTP_PASSWORD` /
+`NTFY_TOPIC` exists, check-jobs skips itself.** So alerts turn on the moment
+you add one. Then:
 
 1. Actions -> **test-notify** -> Run workflow, and check your phone.
 2. The next check-jobs run seeds silently (empty DB). Texts start with the
