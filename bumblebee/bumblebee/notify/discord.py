@@ -23,7 +23,7 @@ class DiscordNotifier(Notifier):
     channel = "discord"
     sms_like = False
 
-    def __init__(self, webhook_url: str, username: str = "Job Alerts", timeout: float = 15,
+    def __init__(self, webhook_url: str, username: str = "Bumblebee", timeout: float = 15,
                  max_attempts: int = 3, session: requests.Session | None = None):
         self.url = webhook_url
         self.username = username
