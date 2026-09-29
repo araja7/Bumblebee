@@ -186,8 +186,9 @@ class Agent:
     # ------------------------------------------------------------------
     def _line(self, job: Job, batch: bool = False) -> str:
         loc = self.filter.locations.short_label(job.matched_metros) or job.location
-        max_chars = None if batch and self.cfg["notifier"].get("batch_via_mms", True) \
-            else self.cfg["notifier"].get("max_chars", 140)
+        ncfg = self.cfg["notifier"]
+        squeeze = self.notifier.sms_like and not (batch and ncfg.get("batch_via_mms", True))
+        max_chars = ncfg.get("max_chars", 140) if squeeze else None
         return format_job_line(job.company, job.title, loc, job.url, max_chars)
 
     def _notify(self, s: RunSummary) -> None:

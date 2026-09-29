@@ -173,9 +173,9 @@ discovery:
   max_validations_per_run: 500
 
 notifier:
-  # auto: texts if SMTP_USER+SMTP_PASSWORD are set, else ntfy if NTFY_TOPIC is set.
-  type: auto                   # auto | email_sms | ntfy
-  max_chars: 140
+  # auto: first of DISCORD_WEBHOOK_URL, SMTP_USER+SMTP_PASSWORD (texts), NTFY_TOPIC that is set.
+  type: auto                   # auto | discord | email_sms | ntfy
+  max_chars: 140               # SMS only; Discord/ntfy get full titles
   batch_threshold: 5           # more than this many new jobs in a run => batched
   batch_max_items: 8           # jobs per batched message
   batch_via_mms: true          # send batches to the MMS gateway (longer limit)
