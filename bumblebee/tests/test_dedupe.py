@@ -147,6 +147,40 @@ def test_failed_send_does_not_advance_cutoff(cfg, db):
     assert not db.is_seen(make_job(id="1", url="https://job-boards.greenhouse.io/acme/jobs/1"))
 
 
+def test_nothing_new_message(cfg, db):
+    cfg.raw["notifier"]["notify_when_empty"] = True
+    active_seeded_company(db)
+    last = (NOW - timedelta(hours=1)).isoformat()
+    db.set_meta("last_notified_run_at", last)
+    notifier = ConsoleNotifier()
+    s = make_agent(cfg, db, FakeHttp(routes([gh_job(1, hours_ago=30)])), notifier=notifier).run()
+    assert s.new_matches == 0 and s.nothing_new_sent
+    assert notifier.sent == ["Bumblebee: no new jobs. Checked 1 companies."]
+    # not a job alert: no cap usage, cutoff unchanged
+    assert db.notifications_today() == 0
+    assert db.get_meta("last_notified_run_at") == last
+
+
+def test_nothing_new_mentions_failures_and_skips_when_matches_or_seeding(cfg, db):
+    cfg.raw["notifier"]["notify_when_empty"] = True
+    active_seeded_company(db)
+    db.add_company("greenhouse", "broken", status="active")
+    db.mark_company_seeded("greenhouse", "broken")
+    r = routes([gh_job(1, hours_ago=30)])
+    r["https://boards-api.greenhouse.io/v1/boards/broken/jobs"] = RuntimeError("boom")
+    notifier = ConsoleNotifier()
+    make_agent(cfg, db, FakeHttp(r), notifier=notifier).run()
+    assert notifier.sent[-1].endswith("1 failed to load.")
+
+    notifier = ConsoleNotifier()
+    s = make_agent(cfg, db, FakeHttp(routes([gh_job(2)])), notifier=notifier).run()
+    assert s.new_matches == 1 and not s.nothing_new_sent and len(notifier.sent) == 1
+
+    notifier = ConsoleNotifier()
+    s = make_agent(cfg, db, FakeHttp(routes([gh_job(3, hours_ago=30)])), notifier=notifier).run(seed=True)
+    assert not s.nothing_new_sent and notifier.sent == []
+
+
 def test_filters_applied(cfg, db):
     active_seeded_company(db)
     jobs = [gh_job(1), gh_job(2, title="Senior Software Engineer"), gh_job(3, loc="Remote"),

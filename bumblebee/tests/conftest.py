@@ -25,6 +25,7 @@ def cfg(tmp_path) -> Config:
     raw["paths"]["http_cache"] = str(tmp_path / "cache")
     raw["paths"]["companies_seed"] = str(tmp_path / "companies.yaml")
     raw["paths"]["candidate_names"] = str(tmp_path / "candidate_names.txt")
+    raw["notifier"]["notify_when_empty"] = False  # tests opt in explicitly
     return Config(raw=raw, root=ROOT)
 
 

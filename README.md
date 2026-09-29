@@ -164,6 +164,12 @@ on the next run.
 text. When the cap is hit, the remaining matches are logged with their URLs
 and marked `capped`.
 
+**No new jobs:** a run that finds nothing sends a short check-in instead of
+staying silent, e.g. `Bumblebee: no new jobs. Checked 1,098 companies.`, plus
+how many failed to load, if any. It doesn't count toward the daily cap or move
+the "since the last message" cutoff. Turn it off with
+`notifier.notify_when_empty: false`.
+
 ## How discovery works
 
 Companies live in the `companies` table with status

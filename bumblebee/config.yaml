@@ -185,6 +185,7 @@ notifier:
   batch_max_items: 8           # jobs per batched message
   batch_via_mms: true          # send batches to the MMS gateway (longer limit)
   daily_cap: 30                # max texts per calendar day (local time)
+  notify_when_empty: true      # send "no new jobs" when a run finds nothing (not capped)
   ntfy:
     server: https://ntfy.sh
     # topic comes from NTFY_TOPIC in .env

@@ -50,7 +50,8 @@ def cmd_run(cfg: Config, args: argparse.Namespace) -> int:
         print(f"{verb} {s.seeded} jobs silently (no texts).")
     else:
         print(f"New matches: {s.new_matches} | rejected on experience: {s.rejected} | "
-              f"messages {'printed' if args.dry_run else 'sent'}: {s.messages_sent} | capped: {s.capped}")
+              f"messages {'printed' if args.dry_run else 'sent'}: {s.messages_sent} | capped: {s.capped}"
+              + (" | sent 'no new jobs'" if s.nothing_new_sent else ""))
     print(f"Took {s.duration_s}s, {http.request_count} HTTP requests.")
     return 0
 

@@ -34,6 +34,7 @@ class RunSummary:
     messages_sent: int = 0
     capped: int = 0
     seed_mode: bool = False
+    nothing_new_sent: bool = False
     matches: list[Job] = field(default_factory=list)
     duration_s: float = 0.0
 
@@ -106,6 +107,8 @@ class Agent:
         s.new_matches = len(s.matches)
         if s.matches:
             self._notify(s)
+        elif not s.seed_mode and self.cfg["notifier"].get("notify_when_empty", True):
+            self._notify_nothing_new(s)
         s.duration_s = round(time.monotonic() - t0, 1)
         log.info("run complete", **{k: v for k, v in s.__dict__.items() if k != "matches"},
                  http_requests=self.http.request_count)
@@ -197,6 +200,20 @@ class Agent:
         squeeze = self.notifier.sms_like and not (batch and ncfg.get("batch_via_mms", True))
         max_chars = ncfg.get("max_chars", 140) if squeeze else None
         return format_job_line(job.company, job.title, loc, job.url, max_chars)
+
+    def _notify_nothing_new(self, s: RunSummary) -> None:
+        """An "all quiet" check-in, so silence never has to mean "broken". It is
+        not logged as a notification: it doesn't count toward the daily cap
+        and doesn't move the "posted since the last message" cutoff."""
+        text = f"Bumblebee: no new jobs. Checked {s.companies_checked:,} companies."
+        if s.companies_failed:
+            text += f" {s.companies_failed:,} failed to load."
+        try:
+            self.notifier.send(text, title="Bumblebee: no new jobs")
+        except NotifyError as e:
+            log.warning("nothing-new message failed", error=str(e))
+            return
+        s.nothing_new_sent = True
 
     def _notify(self, s: RunSummary) -> None:
         ncfg = self.cfg["notifier"]
