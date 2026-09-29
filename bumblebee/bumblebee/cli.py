@@ -150,7 +150,7 @@ def cmd_test_notify(cfg: Config, args: argparse.Namespace) -> int:
         return 2
     db = DB(cfg.path("db"))
     stamp = datetime.now().strftime("%H:%M")
-    msg = f"Bumblebee test {stamp}: if you can read this, alerts work."
+    msg = f"Bumblebee Test {stamp}: if you can read this, alerts work."
     print(f"Sending test via {notifier.describe()} ...")
     try:
         notifier.send(msg, title="Bumblebee test")

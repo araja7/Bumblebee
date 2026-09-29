@@ -135,8 +135,9 @@ sources:
 
 scheduling:
   # Companies with at least one posting in your metros get checked every run.
-  # Others are checked at most this often, to keep each run fast and polite.
-  low_relevance_interval_minutes: 60
+  # Others are checked at most this often. 0 = every run; runs are already
+  # hourly, and a 60 here would skip them whenever a run fires a bit early.
+  low_relevance_interval_minutes: 0
 
 http:
   user_agent: "bumblebee/0.1 (personal new-grad job alert bot)"

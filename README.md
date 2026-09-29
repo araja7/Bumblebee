@@ -1,10 +1,10 @@
 # Bumblebee
 
-A job-scouting agent, named after the Autobot scout. Every 15 minutes it
-checks job boards for **newly posted entry-level / new-grad software
-engineering roles** in Seattle, SF, NYC, Boston, and Chicago (on-site or
-hybrid), and texts you each new match via email-to-SMS. A daily discovery job
-keeps growing the list of companies it watches.
+A job-scouting agent, named after the Autobot scout. Every hour it checks
+job boards for **newly posted entry-level / new-grad software engineering
+roles** in Seattle, SF, NYC, Boston, and Chicago (on-site or hybrid), and
+texts you each new match via email-to-SMS. A daily discovery job keeps
+growing the list of companies it watches.
 
 ```
 sources (Greenhouse, Lever, Ashby per company + SimplifyJobs list)
@@ -200,9 +200,9 @@ running. A dead board seen again in a fresh GitHub link is revived to
 `candidate`. `discover` ends with a summary of what was added per strategy,
 and the log lists every added `ats:slug`.
 
-To keep 15-minute runs fast, companies with **no** postings in your metros
-are checked at most hourly (`scheduling.low_relevance_interval_minutes`).
-Everything else is checked every run.
+Every active company is checked every hourly run. To check companies with
+**no** postings in your metros less often, raise
+`scheduling.low_relevance_interval_minutes` (0 by default).
 
 ## Politeness and robustness
 
@@ -233,7 +233,7 @@ The workflows live at the **repo root** in `.github/workflows/`, because
 GitHub ignores workflow files in subdirectories. They `cd` into
 `bumblebee/`:
 
-- `check-jobs.yml`: every 15 minutes.
+- `check-jobs.yml`: hourly, at :22.
 - `discover.yml`: daily at 11:10 UTC.
 - `test-notify.yml`: manual only. It sends one test message using the repo
   secrets.
@@ -266,8 +266,8 @@ you add one. Then:
 Tradeoffs:
 - Scheduled runs are often delayed 5-20 minutes when GitHub is busy.
 - A run takes ~4 minutes with ~500 companies. That's free in a **public**
-  repo, but at 96 runs/day it would far exceed a private repo's 2,000 free
-  minutes/month. In a public repo, `config.yaml` and the `state` branch (the
+  repo, but at 24 runs/day (~2,900 minutes/month) it would exceed a private
+  repo's 2,000 free minutes/month. In a public repo, `config.yaml` and the `state` branch (the
   company list plus seen jobs) are public. Secrets are not.
 - GitHub disables schedules in public repos after 60 days without repo
   activity; re-enable from the Actions tab if that happens.

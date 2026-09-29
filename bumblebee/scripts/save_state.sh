@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # GitHub Actions helper: force-push data/jobs.db to the `state` branch as a
-# single orphan commit, so the repo doesn't grow by one DB copy every 15 min.
+# single orphan commit, so the repo doesn't grow by one DB copy every run.
 set -euo pipefail
 tmp=$(mktemp -d)
 cp data/jobs.db "$tmp/jobs.db"

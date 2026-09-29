@@ -7,8 +7,8 @@
 SHELL=/bin/bash
 JA=/path/to/bumblebee
 
-# Check for new jobs every 15 minutes
-*/15 * * * * cd $JA && .venv/bin/python -m bumblebee run >> data/run.log 2>&1
+# Check for new jobs every hour
+22 * * * * cd $JA && .venv/bin/python -m bumblebee run >> data/run.log 2>&1
 
 # Discover new companies daily at 06:10 local time
 10 6 * * * cd $JA && .venv/bin/python -m bumblebee discover >> data/discover.log 2>&1

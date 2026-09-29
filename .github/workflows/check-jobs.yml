@@ -4,7 +4,7 @@ on:
   schedule:
     # Off the top of the hour on purpose: GitHub drops/delays scheduled runs at
     # :00 under load (their docs recommend other minutes). Still best effort.
-    - cron: "7,22,37,52 * * * *"
+    - cron: "22 * * * *"   # hourly
   workflow_dispatch:
     inputs:
       dry_run:
