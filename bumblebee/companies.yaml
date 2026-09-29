@@ -1,0 +1,56 @@
+# Seed list of well-known companies (slugs verified against the live APIs on
+# 2026-09-26). Loaded into the SQLite `companies` table as active on startup;
+# discovery adds many more. Add one here, or at runtime with:
+#   python -m bumblebee companies add greenhouse:<slug>
+
+greenhouse:
+  - {slug: stripe, name: Stripe}
+  - {slug: airbnb, name: Airbnb}
+  - {slug: databricks, name: Databricks}
+  - {slug: figma, name: Figma}
+  - {slug: discord, name: Discord}
+  - {slug: robinhood, name: Robinhood}
+  - {slug: coinbase, name: Coinbase}
+  - {slug: dropbox, name: Dropbox}
+  - {slug: pinterest, name: Pinterest}
+  - {slug: lyft, name: Lyft}
+  - {slug: instacart, name: Instacart}
+  - {slug: reddit, name: Reddit}
+  - {slug: cloudflare, name: Cloudflare}
+  - {slug: datadog, name: Datadog}
+  - {slug: mongodb, name: MongoDB}
+  - {slug: asana, name: Asana}
+  - {slug: affirm, name: Affirm}
+  - {slug: brex, name: Brex}
+  - {slug: chime, name: Chime}
+  - {slug: gusto, name: Gusto}
+  - {slug: doordashusa, name: DoorDash}
+  - {slug: duolingo, name: Duolingo}
+  - {slug: squarespace, name: Squarespace}
+  - {slug: roblox, name: Roblox}
+  - {slug: samsara, name: Samsara}
+  - {slug: anthropic, name: Anthropic}
+  - {slug: okta, name: Okta}
+  - {slug: toast, name: Toast}
+  - {slug: scaleai, name: Scale AI}
+  - {slug: twitch, name: Twitch}
+  - {slug: betterment, name: Betterment}
+  - {slug: vercel, name: Vercel}
+  - {slug: block, name: Block}
+  - {slug: twilio, name: Twilio}
+  - {slug: verkada, name: Verkada}
+
+lever:
+  - {slug: palantir, name: Palantir}
+  - {slug: spotify, name: Spotify}
+  - {slug: zoox, name: Zoox}
+
+ashby:
+  - {slug: ramp, name: Ramp}
+  - {slug: openai, name: OpenAI}
+  - {slug: notion, name: Notion}
+  - {slug: linear, name: Linear}
+  - {slug: plaid, name: Plaid}
+  - {slug: snowflake, name: Snowflake}
+  - {slug: perplexity, name: Perplexity}
+  - {slug: vanta, name: Vanta}

@@ -16,7 +16,7 @@ sources (Greenhouse, Lever, Ashby per company + SimplifyJobs list)
 ## Setup
 
 ```bash
-cd job-alert-agent
+cd bumblebee
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env        # then fill it in (see below)
 .venv/bin/python -m pytest  # all network calls are mocked
@@ -77,7 +77,7 @@ disabled.
 ### Verify delivery first
 
 ```bash
-.venv/bin/python -m job_alert test-notify
+.venv/bin/python -m bumblebee test-notify
 ```
 
 This sends one test text. "Accepted for delivery" only means Gmail took the
@@ -93,29 +93,29 @@ Gmail for a bounce and switch to ntfy:
 
 ```bash
 # 1. Grow the company list (daily job; first run takes ~5 min)
-.venv/bin/python -m job_alert discover
+.venv/bin/python -m bumblebee discover
 
 # 2. Preview what would be texted. Writes nothing to the DB.
-.venv/bin/python -m job_alert run --dry-run
-.venv/bin/python -m job_alert run --dry-run --max-age-hours 168   # wider window for a fuller preview
+.venv/bin/python -m bumblebee run --dry-run
+.venv/bin/python -m bumblebee run --dry-run --max-age-hours 168   # wider window for a fuller preview
 
 # 3. Seed: record everything currently open WITHOUT texting
-.venv/bin/python -m job_alert run --seed
+.venv/bin/python -m bumblebee run --seed
 
 # 4. From now on, only new postings are texted
-.venv/bin/python -m job_alert run
+.venv/bin/python -m bumblebee run
 ```
 
 The very first real `run` on an empty DB seeds automatically, even without
 `--seed`. Other commands:
 
 ```bash
-python -m job_alert companies list [--status active|candidate|dead|removed]
-python -m job_alert companies add greenhouse:stripe
-python -m job_alert companies add https://jobs.lever.co/palantir   # any board or job URL works
-python -m job_alert companies remove ashby:somecompany             # discovery won't re-add it
-python -m job_alert -v run --dry-run                                # debug logging
-LOG_FORMAT=json python -m job_alert run                             # JSON log lines
+python -m bumblebee companies list [--status active|candidate|dead|removed]
+python -m bumblebee companies add greenhouse:stripe
+python -m bumblebee companies add https://jobs.lever.co/palantir   # any board or job URL works
+python -m bumblebee companies remove ashby:somecompany             # discovery won't re-add it
+python -m bumblebee -v run --dry-run                                # debug logging
+LOG_FORMAT=json python -m bumblebee run                             # JSON log lines
 ```
 
 ## Matching rules (all in `config.yaml`)
@@ -169,7 +169,7 @@ Companies live in the `companies` table with status
 `candidate -> active -> dead` (plus `removed` for manual removals).
 `companies.yaml` seeds 46 hand-verified boards as active.
 
-`discover` runs three strategies, each in `job_alert/discovery/`:
+`discover` runs three strategies, each in `bumblebee/discovery/`:
 
 1. **`github_lists.py`**: downloads the SimplifyJobs New-Grad listings JSON
    (13 MB, ETag-cached) and the other public new-grad lists configured under
@@ -231,7 +231,7 @@ always-on box: a desktop, a Raspberry Pi, or a $5 VPS.
 
 The workflows live at the **repo root** in `.github/workflows/`, because
 GitHub ignores workflow files in subdirectories. They `cd` into
-`job-alert-agent/`:
+`bumblebee/`:
 
 - `check-jobs.yml`: every 15 minutes.
 - `discover.yml`: daily at 11:10 UTC.
@@ -279,7 +279,7 @@ free, at the cost of schedule jitter and a public config.
 ## Layout
 
 ```
-job_alert/
+bumblebee/
   cli.py            commands: run, discover, companies, test-notify
   agent.py          one run: fetch -> filter -> dedupe -> notify (+ seeding, cap, batching)
   filters.py        title / years-of-experience / location+remote / recency

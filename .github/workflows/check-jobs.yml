@@ -14,7 +14,7 @@ on:
 
 # check-jobs, discover, and test-notify all touch the DB; never run concurrently.
 concurrency:
-  group: job-alert-state
+  group: bumblebee-state
   cancel-in-progress: false
 
 permissions:
@@ -22,7 +22,7 @@ permissions:
 
 defaults:
   run:
-    working-directory: job-alert-agent
+    working-directory: bumblebee
 
 jobs:
   run:
@@ -57,7 +57,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: job-alert-agent/requirements.txt
+          cache-dependency-path: bumblebee/requirements.txt
       - if: steps.gate.outputs.enabled == 'true'
         run: pip install -r requirements.txt
       - name: Restore state
@@ -67,12 +67,12 @@ jobs:
         if: steps.gate.outputs.enabled == 'true'
         uses: actions/cache@v4
         with:
-          path: job-alert-agent/data/http_cache
+          path: bumblebee/data/http_cache
           key: http-cache-${{ github.run_id }}
           restore-keys: http-cache-
       - name: Check jobs
         if: steps.gate.outputs.enabled == 'true'
-        run: python -m job_alert run ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python -m bumblebee run ${{ inputs.dry_run && '--dry-run' || '' }}
       - name: Save state
         if: steps.gate.outputs.enabled == 'true' && !inputs.dry_run
         env:
