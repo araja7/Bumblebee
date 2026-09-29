@@ -1,6 +1,6 @@
-# job-alert-agent
+# Bumblebee
 
-Checks job boards every 15 minutes for **newly posted entry-level / new-grad
+Scouts job boards every 15 minutes for **newly posted entry-level / new-grad
 software engineering roles** in Seattle, SF, NYC, Boston, and Chicago
 (on-site or hybrid), and texts you each new match via email-to-SMS. A daily
 discovery job keeps growing the list of companies it watches.
