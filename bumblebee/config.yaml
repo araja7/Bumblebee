@@ -85,9 +85,13 @@ criteria:
   # minimum above this. 2 => "3+ years" or higher is rejected.
   max_years_experience: 2
 
-  # Only alert on jobs posted within this window. Jobs whose source gives no
-  # posting date pass (they're new to us because dedupe hasn't seen them).
+  # Alert on jobs posted since the last message you received (and never sent
+  # before). Precisely: after the start of the run that sent it, minus
+  # cutoff_slack_minutes, so jobs posted mid-run or indexed late aren't lost.
+  # Before any message has been sent, the window is the last max_age_hours.
+  # Jobs whose source gives no posting date pass (dedupe keeps them one-shot).
   max_age_hours: 24
+  cutoff_slack_minutes: 60
 
   allow_remote: false
 

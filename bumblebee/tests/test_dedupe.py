@@ -1,4 +1,4 @@
-"""Dedupe + the seeding rules (first run, --seed, newly added companies)."""
+"""Dedupe + the "posted since the last message" rule (and --seed)."""
 from datetime import timedelta
 
 from bumblebee.agent import Agent
@@ -71,31 +71,48 @@ def test_fingerprint_same_source_different_req_not_duplicate(db):
     assert not db.is_seen(other)
 
 
-# ---- Agent seeding & dedupe -------------------------------------------------------
+# ---- Agent: "posted since the last message" + dedupe ----------------------------
 
-def test_first_run_seeds_without_texting(cfg, db):
+def make_agent_at(cfg, db, http, now, notifier=None):
+    return Agent(cfg, db, http, notifier or ConsoleNotifier(), adapters={"greenhouse": ADAPTERS["greenhouse"]},
+                 feeds=[], now=now)
+
+
+def test_first_run_sends_jobs_posted_in_last_max_age_hours(cfg, db):
     db.add_company("greenhouse", "acme", name="Acme", status="active")
-    http = FakeHttp(routes([gh_job(1), gh_job(2)]))
+    http = FakeHttp(routes([gh_job(1, hours_ago=2), gh_job(2, hours_ago=30)]))
     notifier = ConsoleNotifier()
     s = make_agent(cfg, db, http, notifier=notifier).run()
-    assert s.seed_mode and s.seeded == 2
-    assert notifier.sent == []
-    assert db.get_meta("initialized")
-    # Second run: nothing new
-    s2 = make_agent(cfg, db, http, notifier=notifier).run()
-    assert not s2.seed_mode and s2.new_matches == 0 and notifier.sent == []
+    assert not s.seed_mode and s.new_matches == 1
+    assert notifier.sent[0].endswith("/jobs/1")
+    assert db.get_meta("last_notified_run_at") == NOW.isoformat()
+    s2 = make_agent(cfg, db, http, notifier=notifier).run()             # dedupe
+    assert s2.new_matches == 0 and len(notifier.sent) == 1
 
 
-def test_new_job_after_seed_is_texted_once(cfg, db):
-    db.add_company("greenhouse", "acme", name="Acme", status="active")
-    make_agent(cfg, db, FakeHttp(routes([gh_job(1)]))).run()          # seed
+def test_only_jobs_posted_since_last_message_are_sent(cfg, db):
+    active_seeded_company(db)
+    db.set_meta("last_notified_run_at", (NOW - timedelta(hours=5)).isoformat())
+    # cutoff = 5h ago - 60min slack = 6h ago
+    jobs = [gh_job(1, hours_ago=3), gh_job(2, hours_ago=5.5), gh_job(3, hours_ago=7), gh_job(4, hours_ago=20)]
     notifier = ConsoleNotifier()
-    http = FakeHttp(routes([gh_job(1), gh_job(2)]))
-    s = make_agent(cfg, db, http, notifier=notifier).run()
-    assert s.new_matches == 1 and len(notifier.sent) == 1
-    assert "Acme - Software Engineer, New Grad (NYC) https://job-boards.greenhouse.io/acme/jobs/2" == notifier.sent[0]
-    s = make_agent(cfg, db, http, notifier=notifier).run()             # dedupe
-    assert s.new_matches == 0 and len(notifier.sent) == 1
+    s = make_agent(cfg, db, FakeHttp(routes(jobs)), notifier=notifier).run()
+    assert s.new_matches == 2
+    assert sorted(m[-1] for m in notifier.sent) == ["1", "2"]
+
+
+def test_job_posted_during_sending_run_is_not_lost(cfg, db):
+    # Run A starts at T, fetches acme before job 2 exists, then sends job 1.
+    # Job 2 is posted at T+4min (before A's send). Run B must still send it.
+    active_seeded_company(db)
+    t = NOW - timedelta(hours=1)
+    notifier = ConsoleNotifier()
+    make_agent_at(cfg, db, FakeHttp(routes([gh_job(1, hours_ago=1.5)])), t, notifier).run()
+    assert len(notifier.sent) == 1
+    job2 = gh_job(2)
+    job2["first_published"] = (t + timedelta(minutes=4)).isoformat()
+    s = make_agent(cfg, db, FakeHttp(routes([gh_job(1, hours_ago=1.5), job2])), notifier=notifier).run()
+    assert s.new_matches == 1 and notifier.sent[-1].endswith("/jobs/2")
 
 
 def test_seed_flag_forces_silent(cfg, db):
@@ -105,15 +122,29 @@ def test_seed_flag_forces_silent(cfg, db):
     assert s.seed_mode and s.seeded == 1 and notifier.sent == []
 
 
-def test_new_company_first_fetch_is_seeded_silently(cfg, db):
-    db.set_meta("initialized", NOW.isoformat())
+def test_new_company_first_fetch_uses_same_rule(cfg, db):
+    db.set_meta("last_notified_run_at", (NOW - timedelta(hours=2)).isoformat())
     db.add_company("greenhouse", "acme", name="Acme", status="active")   # never fetched
     notifier = ConsoleNotifier()
-    s = make_agent(cfg, db, FakeHttp(routes([gh_job(1)])), notifier=notifier).run()
-    assert s.seeded == 1 and notifier.sent == []
+    http = FakeHttp(routes([gh_job(1, hours_ago=1), gh_job(2, hours_ago=48)]))
+    s = make_agent(cfg, db, http, notifier=notifier).run()
+    assert s.seeded == 0 and s.new_matches == 1 and notifier.sent[0].endswith("/jobs/1")
     assert db.get_company("greenhouse", "acme").seeded_at
-    s = make_agent(cfg, db, FakeHttp(routes([gh_job(1), gh_job(2)])), notifier=notifier).run()
-    assert s.new_matches == 1 and len(notifier.sent) == 1
+
+
+def test_failed_send_does_not_advance_cutoff(cfg, db):
+    active_seeded_company(db)
+    last = (NOW - timedelta(hours=5)).isoformat()
+    db.set_meta("last_notified_run_at", last)
+
+    class Failing(ConsoleNotifier):
+        def send(self, *a, **k):
+            from bumblebee.notify import NotifyError
+            raise NotifyError("down")
+
+    make_agent(cfg, db, FakeHttp(routes([gh_job(1)])), notifier=Failing()).run()
+    assert db.get_meta("last_notified_run_at") == last
+    assert not db.is_seen(make_job(id="1", url="https://job-boards.greenhouse.io/acme/jobs/1"))
 
 
 def test_filters_applied(cfg, db):
@@ -140,12 +171,14 @@ def test_dry_run_writes_nothing(cfg, db):
     assert db.seen_count() == 0 and db.notifications_today() == 0
 
 
-def test_dry_run_on_empty_db_previews_instead_of_seeding(cfg, db):
-    db.add_company("greenhouse", "acme", name="Acme", status="active")
-    notifier = ConsoleNotifier()
-    s = make_agent(cfg, db, FakeHttp(routes([gh_job(1)])), notifier=notifier, dry_run=True).run()
-    assert not s.seed_mode and s.new_matches == 1
-    assert db.get_meta("initialized") is None and db.seen_count() == 0
+def test_dry_run_max_age_override_widens_window(cfg, db):
+    active_seeded_company(db)
+    db.set_meta("last_notified_run_at", (NOW - timedelta(hours=1)).isoformat())
+    http = FakeHttp(routes([gh_job(1, hours_ago=100)]))
+    agent = Agent(cfg, db, http, ConsoleNotifier(), adapters={"greenhouse": ADAPTERS["greenhouse"]},
+                  feeds=[], dry_run=True, now=NOW, max_age_override=168)
+    s = agent.run()
+    assert s.new_matches == 1 and db.seen_count() == 0
 
 
 def test_simplify_duplicate_of_monitored_board_skipped(cfg, db):

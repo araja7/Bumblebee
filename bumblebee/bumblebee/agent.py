@@ -42,7 +42,8 @@ class Agent:
     def __init__(self, cfg: Config, db: DB, http: HttpClient, notifier: Notifier, *,
                  adapters: dict[str, ATSAdapter] | None = None,
                  feeds: list[FeedSource] | None = None,
-                 dry_run: bool = False, now: datetime | None = None):
+                 dry_run: bool = False, now: datetime | None = None,
+                 max_age_override: float | None = None):
         self.cfg, self.db, self.http, self.notifier = cfg, db, http, notifier
         self.adapters = adapters if adapters is not None else {
             k: v for k, v in ADAPTERS.items() if cfg["sources"].get(k, {}).get("enabled", True)}
@@ -53,6 +54,7 @@ class Agent:
         self.filter = JobFilter(cfg.criteria, cfg["locations"])
         self.dry_run = dry_run
         self.now = now or datetime.now(timezone.utc)
+        self.max_age_override = max_age_override
         self.dead_after = cfg["discovery"].get("dead_after_consecutive_404s", 3)
         self._run_keys: set[str] = set()
         self._run_fps: set[str] = set()
@@ -61,17 +63,11 @@ class Agent:
     def run(self, seed: bool = False) -> RunSummary:
         t0 = time.monotonic()
         s = RunSummary()
-        first_run = self.db.get_meta("initialized") is None
-        # Preview: a dry run on an empty DB shows what *would* be texted if
-        # everything were new, instead of silently "seeding" nothing.
-        self.preview = self.dry_run and first_run and not seed
-        s.seed_mode = (seed or first_run) and not self.preview
+        s.seed_mode = seed
         if s.seed_mode:
-            log.info("SEED MODE: recording current matches without texting",
-                     reason="--seed" if seed else "first run (empty DB)")
-        if self.preview:
-            log.info("dry run on an uninitialized DB: showing all current matches as if new; "
-                     "a real first run would record these silently")
+            log.info("SEED MODE: recording current matches without texting", reason="--seed")
+        self.cutoff = self._cutoff()
+        log.info("alerting on jobs posted after cutoff", cutoff=self.cutoff.isoformat())
 
         companies = self._due_companies(s)
         outcomes = fetch_boards(self.http, self.adapters, companies)
@@ -85,8 +81,7 @@ class Agent:
             relevant = sum(1 for j in result.jobs if self.filter.locations.metros_for(" / ".join(j.all_locations())))
             if not self.dry_run:
                 self.db.record_fetch_ok(company.ats, company.slug, len(result.jobs), relevant, result.company_name)
-            seed_this = s.seed_mode or (company.seeded_at is None and not self.preview)
-            self._process(result.jobs, self.adapters[company.ats], s, seed=seed_this,
+            self._process(result.jobs, self.adapters[company.ats], s, seed=s.seed_mode,
                           label=company.key, first_fetch=company.seeded_at is None)
             if company.seeded_at is None and not self.dry_run:
                 self.db.mark_company_seeded(company.ats, company.slug)
@@ -100,8 +95,7 @@ class Agent:
             # Jobs on boards we monitor directly are handled by the ATS adapter.
             jobs = [j for j in jobs if not (j.ats and j.company_slug and f"{j.ats}:{j.company_slug}" in monitored)]
             feed_seeded = self.db.get_meta(f"feed_seeded:{feed.name}") is not None
-            seed_this = s.seed_mode or (not feed_seeded and not self.preview)
-            self._process(jobs, feed, s, seed=seed_this, label=f"feed:{feed.name}", first_fetch=not feed_seeded)
+            self._process(jobs, feed, s, seed=s.seed_mode, label=f"feed:{feed.name}", first_fetch=not feed_seeded)
             if not self.dry_run:
                 self.db.set_meta(f"feed_seeded:{feed.name}", self.now.isoformat())
 
@@ -118,6 +112,19 @@ class Agent:
         return s
 
     # ------------------------------------------------------------------
+    def _cutoff(self) -> datetime:
+        """Alert only on jobs posted after this: the start of the run that sent
+        the last message, minus some slack. Using the run's start (not the send
+        time) keeps jobs posted mid-run from falling in the gap; the slack
+        covers ATS indexing lag. Dedupe stops the overlap from repeating
+        anything. Before any message, fall back to `max_age_hours`."""
+        last = self.db.get_meta("last_notified_run_at")
+        if last and self.max_age_override is None:
+            slack = timedelta(minutes=self.cfg.criteria.get("cutoff_slack_minutes", 60))
+            return datetime.fromisoformat(last) - slack
+        hours = self.max_age_override if self.max_age_override is not None else self.filter.max_age_hours
+        return self.now - timedelta(hours=hours)
+
     def _due_companies(self, s: RunSummary) -> list[Company]:
         """Every active company with jobs in our metros (or unknown) is due each
         run; others only every `low_relevance_interval_minutes`."""
@@ -162,7 +169,7 @@ class Agent:
                 log.info("seeded silently", source=label, jobs=len(unseen), first_fetch=first_fetch)
             return
         for job in unseen:
-            if not self.filter.recent(job, self.now):
+            if not self.filter.posted_after(job, self.cutoff):
                 continue
             try:
                 job.description = source.fetch_description(self.http, job)
@@ -226,3 +233,4 @@ class Agent:
             if not self.dry_run:
                 self.db.mark_seen(chunk, "notified")
                 self.db.log_notification(self.notifier.channel, len(chunk), text)
+                self.db.set_meta("last_notified_run_at", self.now.isoformat())

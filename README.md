@@ -8,7 +8,7 @@ growing the list of companies it watches.
 
 ```
 sources (Greenhouse, Lever, Ashby per company + SimplifyJobs list)
-   -> filters (title, location/remote, posted <24h, years of experience)
+   -> filters (title, location/remote, posted since last message, years of experience)
    -> dedupe (SQLite)
    -> notify (email-to-SMS | ntfy.sh | stdout for --dry-run)
 ```
@@ -99,15 +99,12 @@ Gmail for a bounce and switch to ntfy:
 .venv/bin/python -m bumblebee run --dry-run
 .venv/bin/python -m bumblebee run --dry-run --max-age-hours 168   # wider window for a fuller preview
 
-# 3. Seed: record everything currently open WITHOUT texting
-.venv/bin/python -m bumblebee run --seed
-
-# 4. From now on, only new postings are texted
+# 3. Text matches posted since the last message (the last 24h on the first run)
 .venv/bin/python -m bumblebee run
 ```
 
-The very first real `run` on an empty DB seeds automatically, even without
-`--seed`. Other commands:
+To start silently instead, `run --seed` records everything currently open
+without texting. Other commands:
 
 ```bash
 python -m bumblebee companies list [--status active|candidate|dead|removed]
@@ -137,10 +134,14 @@ LOG_FORMAT=json python -m bumblebee run                             # JSON log l
   style entries and roles whose `workplaceType` is remote. A hybrid NYC role
   that also lists "Remote (US)" still matches. Bellevue/Redmond/Kirkland count as
   Seattle, and Cambridge MA/Somerville count as Boston.
-- **Recency:** posted within 24h. Jobs with no posting date pass, because
-  dedupe guarantees they're new to us.
+- **Recency:** posted since the last message you received. Precisely, after
+  the start of the run that sent it, minus `cutoff_slack_minutes` (60), so a
+  job posted while that run was in progress, or indexed late by the job board,
+  isn't lost; dedupe stops the overlap from repeating anything. Before any
+  message has been sent, the window is the last `max_age_hours` (24). Jobs
+  with no posting date pass, because dedupe guarantees they're new to us.
 
-## Dedupe and seeding
+## Dedupe
 
 `seen_jobs` in SQLite is keyed on a canonical id. Greenhouse job ids and
 Lever/Ashby UUIDs are globally unique, so the same job reached through
@@ -150,10 +151,10 @@ catches cross-source duplicates with unrelated URLs. That hash only applies
 *across* sources, because one company can have two genuinely separate
 "Software Engineer" reqs.
 
-Nothing is texted for:
-- anything open on the very first run, or during `run --seed`,
-- a newly added company's jobs on its first fetch,
-- the SimplifyJobs feed's contents on its first fetch.
+A job is texted only if it was posted since the last message **and** was
+never texted before. The same rule applies to the first run, to a newly
+discovered company, and to a new feed. `run --seed` is the exception: it
+records everything open without texting.
 
 Jobs rejected on experience are remembered, so their descriptions aren't
 re-fetched every run. If sending fails, the jobs stay unseen and are retried
@@ -260,8 +261,8 @@ secrets exist. **Until one of `DISCORD_WEBHOOK_URL` / `SMTP_PASSWORD` /
 you add one. Then:
 
 1. Actions -> **test-notify** -> Run workflow, and check your phone.
-2. The next check-jobs run seeds silently (empty DB). Texts start with the
-   run after that.
+2. The next check-jobs run texts matches posted in the last 24 hours. After
+   that, each run texts jobs posted since your last message.
 
 Tradeoffs:
 - Scheduled runs are often delayed 5-20 minutes when GitHub is busy.
@@ -281,7 +282,7 @@ free, at the cost of schedule jitter and a public config.
 ```
 bumblebee/
   cli.py            commands: run, discover, companies, test-notify
-  agent.py          one run: fetch -> filter -> dedupe -> notify (+ seeding, cap, batching)
+  agent.py          one run: fetch -> filter -> dedupe -> notify (+ cutoff, cap, batching)
   filters.py        title / years-of-experience / location+remote / recency
   db.py             SQLite: seen_jobs, companies, probe_cache, notifications, meta
   http.py           timeouts, retries+backoff, per-host rate limit, robots.txt, ETag cache

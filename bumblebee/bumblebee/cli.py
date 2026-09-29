@@ -40,9 +40,8 @@ def cmd_run(cfg: Config, args: argparse.Namespace) -> int:
     except ConfigError as e:
         print(f"Config error: {e}", file=sys.stderr)
         return 2
-    if args.max_age_hours is not None:
-        cfg.criteria["max_age_hours"] = args.max_age_hours
-    s = Agent(cfg, db, http, notifier, dry_run=args.dry_run).run(seed=args.seed)
+    s = Agent(cfg, db, http, notifier, dry_run=args.dry_run,
+              max_age_override=args.max_age_hours).run(seed=args.seed)
     print(f"\nChecked {s.companies_checked} companies ({s.companies_failed} failed, "
           f"{s.companies_skipped} skipped as low-relevance), {s.jobs_fetched} jobs fetched, "
           f"{s.candidates} passed title+location filters.")
@@ -50,8 +49,6 @@ def cmd_run(cfg: Config, args: argparse.Namespace) -> int:
         verb = "Would seed" if args.dry_run else "Seeded"
         print(f"{verb} {s.seeded} jobs silently (no texts).")
     else:
-        if s.seeded:
-            print(f"Silently seeded {s.seeded} jobs from newly added companies/sources.")
         print(f"New matches: {s.new_matches} | rejected on experience: {s.rejected} | "
               f"messages {'printed' if args.dry_run else 'sent'}: {s.messages_sent} | capped: {s.capped}")
     print(f"Took {s.duration_s}s, {http.request_count} HTTP requests.")
@@ -165,7 +162,7 @@ def cmd_test_notify(cfg: Config, args: argparse.Namespace) -> int:
 The message was accepted for delivery: "{msg}"
 
 Watch your phone for about 2 minutes.
-  - If it arrives, you're set. Next: `python -m bumblebee run --seed`.
+  - If it arrives, you're set. Next: `python -m bumblebee run`.
   - If it DOESN'T arrive, the SMTP send worked but the carrier gateway
     dropped or is throttling it. That's common now: carriers have been shutting down
     email-to-SMS (AT&T ended theirs in 2025), and Gmail-originated mail is often
@@ -185,7 +182,7 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("run", help="Check sources and text new matches")
     r.add_argument("--dry-run", action="store_true", help="Print messages instead of sending; no DB writes")
     r.add_argument("--seed", action="store_true", help="Record all current matches as seen without texting")
-    r.add_argument("--max-age-hours", type=float, help="Override criteria.max_age_hours (handy with --dry-run)")
+    r.add_argument("--max-age-hours", type=float, help="Alert on jobs posted in the last N hours instead of since the last message (handy with --dry-run)")
 
     d = sub.add_parser("discover", help="Find new companies to monitor")
     d.add_argument("--strategies", help=f"Comma list from {','.join(ALL_STRATEGIES)} (default: all)")

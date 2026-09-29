@@ -253,6 +253,13 @@ def is_recent(job: Job, max_age_hours: float, now: datetime | None = None) -> bo
     return now - posted <= timedelta(hours=max_age_hours)
 
 
+def is_posted_after(job: Job, cutoff: datetime) -> bool:
+    if job.posted_at is None:
+        return True  # unknown date: rely on dedupe ("first seen this run")
+    posted = job.posted_at if job.posted_at.tzinfo else job.posted_at.replace(tzinfo=timezone.utc)
+    return posted > cutoff
+
+
 # --------------------------------------------------------------------------
 # Combined
 # --------------------------------------------------------------------------
@@ -274,6 +281,9 @@ class JobFilter:
 
     def recent(self, job: Job, now: datetime | None = None) -> bool:
         return is_recent(job, self.max_age_hours, now)
+
+    def posted_after(self, job: Job, cutoff: datetime) -> bool:
+        return is_posted_after(job, cutoff)
 
     def experience(self, job: Job) -> str | None:
         return experience_reason(job.description, self.max_years)
