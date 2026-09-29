@@ -1,9 +1,10 @@
 # Bumblebee
 
-Scouts job boards every 15 minutes for **newly posted entry-level / new-grad
-software engineering roles** in Seattle, SF, NYC, Boston, and Chicago
-(on-site or hybrid), and texts you each new match via email-to-SMS. A daily
-discovery job keeps growing the list of companies it watches.
+A job-scouting agent, named after the Autobot scout. Every 15 minutes it
+checks job boards for **newly posted entry-level / new-grad software
+engineering roles** in Seattle, SF, NYC, Boston, and Chicago (on-site or
+hybrid), and texts you each new match via email-to-SMS. A daily discovery job
+keeps growing the list of companies it watches.
 
 ```
 sources (Greenhouse, Lever, Ashby per company + SimplifyJobs list)
@@ -26,7 +27,7 @@ cp .env.example .env        # then fill it in (see below)
 Gmail won't accept your normal password over SMTP. Create an App Password:
 
 1. Turn on 2-Step Verification: <https://myaccount.google.com/security>.
-2. Go to <https://myaccount.google.com/apppasswords>, name it `job-alert-agent`, and click Create.
+2. Go to <https://myaccount.google.com/apppasswords>, name it `bumblebee`, and click Create.
 3. Copy the 16-character password into `.env` as `SMTP_PASSWORD` (spaces are fine).
 4. Set `SMTP_USER` to your full Gmail address.
 
