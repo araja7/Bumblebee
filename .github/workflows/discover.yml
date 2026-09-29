@@ -2,7 +2,7 @@ name: discover
 
 on:
   schedule:
-    - cron: "10 11 * * *"    # daily, 11:10 UTC (~4am Pacific)
+    - cron: "43 10 * * *"    # daily, 10:43 UTC (~3:43am Pacific), off-peak minute
   workflow_dispatch:
 
 concurrency:
