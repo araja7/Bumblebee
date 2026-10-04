@@ -3,7 +3,7 @@
 A job-scouting agent, named after the Autobot scout. Every hour it checks
 job boards for **newly posted entry-level / new-grad software engineering
 roles** in Seattle, SF, NYC, Boston, and Chicago (on-site or hybrid), and
-texts you each new match via email-to-SMS. A daily discovery job keeps
+texts you each new match via email-to-SMS. A discovery job (every 6 hours) keeps
 growing the list of companies it watches.
 
 ```
@@ -92,7 +92,7 @@ Gmail for a bounce and switch to ntfy:
 ## Running locally
 
 ```bash
-# 1. Grow the company list (daily job; first run takes ~5 min)
+# 1. Grow the company list (6-hourly job; first run takes ~5 min)
 .venv/bin/python -m bumblebee discover
 
 # 2. Preview what would be texted. Writes nothing to the DB.
@@ -174,9 +174,9 @@ the "since the last message" cutoff. Turn it off with
 
 Companies live in the `companies` table with status
 `candidate -> active -> dead` (plus `removed` for manual removals).
-`companies.yaml` seeds 46 hand-verified boards as active.
+`companies.yaml` seeds ~225 hand-verified boards as active.
 
-`discover` runs three strategies, each in `bumblebee/discovery/`:
+`discover` runs four strategies, each in `bumblebee/discovery/`:
 
 1. **`github_lists.py`**: downloads the SimplifyJobs New-Grad listings JSON
    (13 MB, ETag-cached) and the other public new-grad lists configured under
@@ -188,8 +188,12 @@ Companies live in the `companies` table with status
    name to the probe queue instead. Those are ranked by recency and whether
    the role/location match you, and links with `?gh_jid=` or `?ashby_jid=`
    (which prove the ATS) rank highest.
-2. **`seen_urls.py`**: re-mines every job URL already in the seen DB.
-3. **`slug_probe.py`**: for names from `candidate_names.txt` (yours, tried
+2. **`yc.py`**: hiring Y Combinator startups (from the yc-oss API), filtered
+   to the US and ranked by fit (robotics/AI/infra tags, 5-300 people). Their
+   names go to the front of the probe queue below, so early-stage startups
+   get found fast. Tune under `discovery.yc`.
+3. **`seen_urls.py`**: re-mines every job URL already in the seen DB.
+4. **`slug_probe.py`**: for names from `candidate_names.txt` (yours, tried
    first) plus the queue above, it generates likely slugs (`Scale AI` ->
    `scaleai`, `scale-ai`, `scale`) and probes each ATS API. A slug is
    accepted only if it returns 200 with at least one job **and** the company
@@ -241,7 +245,7 @@ GitHub ignores workflow files in subdirectories. They `cd` into
 `bumblebee/`:
 
 - `check-jobs.yml`: hourly, at :22.
-- `discover.yml`: daily at 11:10 UTC.
+- `discover.yml`: every 6 hours.
 - `test-notify.yml`: manual only. It sends one test message using the repo
   secrets.
 

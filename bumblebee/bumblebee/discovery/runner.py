@@ -11,6 +11,7 @@ from bumblebee.db import DB
 from bumblebee.discovery.github_lists import mine_github_lists
 from bumblebee.discovery.lifecycle import LifecycleReport, validate_candidates
 from bumblebee.discovery.seen_urls import mine_seen_urls
+from bumblebee.discovery.yc import mine_yc
 from bumblebee.discovery.slug_probe import ProbeReport, normalize_name, probe_names, read_candidate_names
 from bumblebee.filters import JobFilter
 from bumblebee.http import HttpClient
@@ -19,7 +20,7 @@ from bumblebee.sources import ADAPTERS, ATSAdapter
 
 log = get_logger(__name__)
 
-ALL_STRATEGIES = ("github", "seen", "probe")
+ALL_STRATEGIES = ("github", "yc", "seen", "probe")
 
 
 @dataclass
@@ -66,6 +67,11 @@ def run_discovery(cfg: Config, db: DB, http: HttpClient, *, strategies: tuple[st
         hints = sorted(mined.names.values(), key=lambda h: -h.score)
         name_hints.extend((h.name, h.ats_hint) for h in hints)
 
+    if "yc" in strategies and dcfg.get("yc", {}).get("enabled", True):
+        yc_names = mine_yc(http, dcfg.get("yc", {}))
+        s.found["yc"] = len(yc_names)
+        name_hints = [(n, None) for n in yc_names] + name_hints
+
     if "seen" in strategies:
         refs = mine_seen_urls(db)
         s.found["seen"] = len(refs)
@@ -87,7 +93,7 @@ def run_discovery(cfg: Config, db: DB, http: HttpClient, *, strategies: tuple[st
                 known.add(normalize_name(c.name))
         seen_names: set[str] = set()
         ordered = []
-        for name, hint in user_names + name_hints:
+        for name, hint in user_names + name_hints:   # yc names rank ahead of github ones
             if name.lower() not in seen_names:
                 seen_names.add(name.lower())
                 ordered.append((name, hint))

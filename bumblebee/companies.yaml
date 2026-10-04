@@ -1,5 +1,5 @@
 # Seed list of well-known companies (slugs verified against the live APIs on
-# 2026-09-26). Loaded into the SQLite `companies` table as active on startup;
+# 2026-10-04). Loaded into the SQLite `companies` table as active on startup;
 # discovery adds many more. Add one here, or at runtime with:
 #   python -m bumblebee companies add greenhouse:<slug>
 
@@ -39,11 +39,126 @@ greenhouse:
   - {slug: block, name: Block}
   - {slug: twilio, name: Twilio}
   - {slug: verkada, name: Verkada}
+  - {slug: airtable, name: Airtable}
+  - {slug: akunacapital, name: Akuna Capital}
+  - {slug: anaplan, name: Anaplan}
+  - {slug: astranis, name: Astranis}
+  - {slug: attentive, name: Attentive}
+  - {slug: bitwarden, name: Bitwarden}
+  - {slug: bungie, name: Bungie}
+  - {slug: calm, name: Calm}
+  - {slug: carta, name: Carta}
+  - {slug: carvana, name: Carvana}
+  - {slug: clever, name: Clever}
+  - {slug: cockroachlabs, name: Cockroach Labs}
+  - {slug: coursera, name: Coursera}
+  - {slug: drweng, name: DRW}
+  - {slug: elastic, name: Elastic}
+  - {slug: epicgames, name: Epic Games}
+  - {slug: faire, name: Faire}
+  - {slug: fastly, name: Fastly}
+  - {slug: fireblocks, name: Fireblocks}
+  - {slug: fivetran, name: Fivetran}
+  - {slug: flatironhealth, name: Flatiron Health}
+  - {slug: flexport, name: Flexport}
+  - {slug: gemini, name: Gemini}
+  - {slug: ginkgobioworks, name: Ginkgo Bioworks}
+  - {slug: gitlab, name: GitLab}
+  - {slug: grafanalabs, name: Grafana Labs}
+  - {slug: handshake, name: Handshake}
+  - {slug: honeycomb, name: Honeycomb}
+  - {slug: imc, name: IMC Trading}
+  - {slug: janestreet, name: Jane Street}
+  - {slug: jumptrading, name: Jump Trading}
+  - {slug: khanacademy, name: Khan Academy}
+  - {slug: klaviyo, name: Klaviyo}
+  - {slug: lattice, name: Lattice}
+  - {slug: launchdarkly, name: LaunchDarkly}
+  - {slug: lucidmotors, name: Lucid Motors}
+  - {slug: mercury, name: Mercury}
+  - {slug: mixpanel, name: Mixpanel}
+  - {slug: newrelic, name: New Relic}
+  - {slug: nextdoor, name: Nextdoor}
+  - {slug: nuro, name: Nuro}
+  - {slug: oscar, name: Oscar}
+  - {slug: oura, name: Oura}
+  - {slug: pagerduty, name: PagerDuty}
+  - {slug: peloton, name: Peloton}
+  - {slug: planetscale, name: PlanetScale}
+  - {slug: point72, name: Point72}
+  - {slug: relativity, name: Relativity}
+  - {slug: remote, name: Remote}
+  - {slug: riotgames, name: Riot Games}
+  - {slug: ripple, name: Ripple}
+  - {slug: salesloft, name: Salesloft}
+  - {slug: singlestore, name: SingleStore}
+  - {slug: sofi, name: SoFi}
+  - {slug: spacex, name: SpaceX}
+  - {slug: stitchfix, name: Stitch Fix}
+  - {slug: sumologic, name: Sumo Logic}
+  - {slug: tailscale, name: Tailscale}
+  - {slug: tanium, name: Tanium}
+  - {slug: udemy, name: Udemy}
+  - {slug: upstart, name: Upstart}
+  - {slug: virtu, name: Virtu Financial}
+  - {slug: waymo, name: Waymo}
+  - {slug: webflow, name: Webflow}
+  - {slug: ziprecruiter, name: ZipRecruiter}
+  - {slug: zocdoc, name: Zocdoc}
+  - {slug: zoominfo, name: ZoomInfo}
+  - {slug: zscaler, name: Zscaler}
+  # startups, robotics & systems, AI infra
+  - {slug: adyen, name: Adyen}
+  - {slug: agilityrobotics, name: Agility Robotics}
+  - {slug: apptronik, name: Apptronik}
+  - {slug: bandwidth, name: Bandwidth}
+  - {slug: bird, name: Bird}
+  - {slug: blacksky, name: BlackSky}
+  - {slug: braze, name: Braze}
+  - {slug: coreweave, name: CoreWeave}
+  - {slug: customerio, name: Customer.io}
+  - {slug: diligentrobotics, name: Diligent Robotics}
+  - {slug: divergent, name: Divergent}
+  - {slug: dremio, name: Dremio}
+  - {slug: epirus, name: Epirus}
+  - {slug: figureai, name: Figure AI}
+  - {slug: hawkeye360, name: HawkEye 360}
+  - {slug: highnote, name: Highnote}
+  - {slug: imply, name: Imply}
+  - {slug: justworks, name: Justworks}
+  - {slug: kodiak, name: Kodiak Robotics}
+  - {slug: labelbox, name: Labelbox}
+  - {slug: lithic, name: Lithic}
+  - {slug: motional, name: Motional}
+  - {slug: neuralink, name: Neuralink}
+  - {slug: offerup, name: OfferUp}
+  - {slug: pathrobotics, name: Path Robotics}
+  - {slug: pendo, name: Pendo}
+  - {slug: planetlabs, name: Planet Labs}
+  - {slug: rocketlab, name: Rocket Lab}
+  - {slug: scopely, name: Scopely}
+  - {slug: sendbird, name: Sendbird}
+  - {slug: sigmacomputing, name: Sigma Computing}
+  - {slug: smartsheet, name: Smartsheet}
+  - {slug: spire, name: Spire Global}
+  - {slug: stabilityai, name: Stability AI}
+  - {slug: stackav, name: Stack AV}
+  - {slug: starburst, name: Starburst}
+  - {slug: togetherai, name: Together AI}
+  - {slug: tripactions, name: Navan}
+  - {slug: turing, name: Turing}
+  - {slug: vonage, name: Vonage}
 
 lever:
   - {slug: palantir, name: Palantir}
   - {slug: spotify, name: Spotify}
   - {slug: zoox, name: Zoox}
+  - {slug: gopuff, name: Gopuff}
+  - {slug: jumpcloud, name: Jumpcloud}
+  - {slug: outreach, name: Outreach}
+  - {slug: rover, name: Rover}
+  # startups, robotics & systems, AI infra
+  - {slug: shieldai, name: Shield AI}
 
 ashby:
   - {slug: ramp, name: Ramp}
@@ -54,3 +169,71 @@ ashby:
   - {slug: snowflake, name: Snowflake}
   - {slug: perplexity, name: Perplexity}
   - {slug: vanta, name: Vanta}
+  - {slug: benchling, name: Benchling}
+  - {slug: clerk, name: Clerk}
+  - {slug: clickhouse, name: ClickHouse}
+  - {slug: cohere, name: Cohere}
+  - {slug: column, name: Column}
+  - {slug: cursor, name: Cursor}
+  - {slug: deepgram, name: Deepgram}
+  - {slug: elevenlabs, name: ElevenLabs}
+  - {slug: found, name: Found}
+  - {slug: hex, name: Hex}
+  - {slug: hightouch, name: Hightouch}
+  - {slug: modal, name: Modal}
+  - {slug: moderntreasury, name: Modern Treasury}
+  - {slug: motherduck, name: MotherDuck}
+  - {slug: persona, name: Persona}
+  - {slug: posthog, name: PostHog}
+  - {slug: replit, name: Replit}
+  - {slug: resend, name: Resend}
+  - {slug: runway, name: Runway}
+  - {slug: sanity, name: Sanity}
+  - {slug: sardine, name: Sardine}
+  - {slug: socure, name: Socure}
+  - {slug: supabase, name: Supabase}
+  - {slug: watershed, name: Watershed}
+  - {slug: zapier, name: Zapier}
+  # startups, robotics & systems, AI infra
+  - {slug: 1x, name: 1X Technologies}
+  - {slug: abridge, name: Abridge}
+  - {slug: airbyte, name: Airbyte}
+  - {slug: anyscale, name: Anyscale}
+  - {slug: attio, name: Attio}
+  - {slug: baseten, name: Baseten}
+  - {slug: black-forest-labs, name: Black Forest Labs}
+  - {slug: bland, name: Bland AI}
+  - {slug: cartesia, name: Cartesia}
+  - {slug: cerebras, name: Cerebras}
+  - {slug: coder, name: Coder}
+  - {slug: cognition, name: Cognition}
+  - {slug: decagon, name: Decagon}
+  - {slug: etched, name: Etched}
+  - {slug: fireworks, name: Fireworks AI}
+  - {slug: graphite, name: Graphite}
+  - {slug: greptile, name: Greptile}
+  - {slug: harvey, name: Harvey}
+  - {slug: krea, name: Krea}
+  - {slug: lambda, name: Lambda}
+  - {slug: langchain, name: LangChain}
+  - {slug: livekit, name: LiveKit}
+  - {slug: llamaindex, name: LlamaIndex}
+  - {slug: nabla, name: Nabla}
+  - {slug: neon, name: Neon}
+  - {slug: periodic-labs, name: Periodic Labs}
+  - {slug: physicalintelligence, name: Physical Intelligence}
+  - {slug: pika, name: Pika}
+  - {slug: prefect, name: Prefect}
+  - {slug: railway, name: Railway}
+  - {slug: render, name: Render}
+  - {slug: rogo, name: Rogo}
+  - {slug: saronic, name: Saronic}
+  - {slug: sesame, name: Sesame}
+  - {slug: sierra, name: Sierra}
+  - {slug: standardbots, name: Standard Bots}
+  - {slug: suno, name: Suno}
+  - {slug: temporal, name: Temporal}
+  - {slug: vapi, name: Vapi}
+  - {slug: warp, name: Warp}
+  - {slug: workos, name: WorkOS}
+  - {slug: writer, name: Writer}

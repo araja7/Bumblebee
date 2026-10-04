@@ -94,3 +94,32 @@ def test_rejects_hardware_and_intern_terms(tf, title):
 
 def test_quality_only_excluded_without_software_signal(tf):
     assert tf.check("Software Engineer, Data Quality") is None
+
+
+# --- Member of Technical Staff: level-less title, gated on the description ---
+def _mts_filter():
+    from bumblebee.config import load_config
+    from bumblebee.filters import JobFilter
+    cfg = load_config()
+    return JobFilter(cfg.criteria, cfg["locations"])
+
+
+def _job(title, desc):
+    from bumblebee.models import Job
+    return Job(id="1", company="X", title=title, location="San Francisco, CA", url="https://x", posted_at=None,
+               source="ashby", description=desc)
+
+
+def test_mts_title_passes_prefilter_despite_staff():
+    f = _mts_filter()
+    assert f.titles.check("Member of Technical Staff") is None
+    assert f.titles.check("Senior Member of Technical Staff") is not None
+    assert f.titles.check("Staff Software Engineer") is not None
+
+
+def test_mts_requires_grad_signal():
+    f = _mts_filter()
+    assert f.grad_signal(_job("Member of Technical Staff", "We hire recent graduates and new grads.")) is None
+    assert f.grad_signal(_job("Member of Technical Staff", "Class of 2027 welcome")) is None
+    assert f.grad_signal(_job("Member of Technical Staff", "Build distributed systems at scale.")) is not None
+    assert f.grad_signal(_job("Software Engineer", "Build distributed systems.")) is None   # not gated

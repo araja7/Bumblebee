@@ -25,6 +25,16 @@ criteria:
     - swe i
     - engineer i
     - university grad
+    # added: robotics / systems / ML / data / infra roles
+    - robotics engineer
+    - systems engineer
+    - machine learning engineer
+    - ml engineer
+    - data engineer
+    - infrastructure engineer
+    - platform engineer
+    # added: startup title with no level; gated on a new-grad signal in the description
+    - member of technical staff
   # ...AND at least one of these, so e.g. "Associate Counsel" or
   # "New Grad Product Designer" don't slip through on a level keyword alone.
   title_require_any:
@@ -35,6 +45,7 @@ criteria:
     - swe
     - sde
     - programmer
+    - technical staff
   # Any of these (whole-word, case-insensitive) rejects the title.
   title_exclude:
     - senior
@@ -74,6 +85,10 @@ criteria:
     # added: intern-equivalents
     - co op
     - coop
+  # Titles that carry no seniority; the description must also signal new-grad /
+  # early-career ("new grad", "recent graduate", "0-2 years", "class of 2027"...).
+  title_needs_grad_signal:
+    - member of technical staff
   # Regexes (case-insensitive) that also reject a title.
   title_exclude_patterns:
     - '\b(engineer|developer|swe|sde)\s*[-,]?\s*(2|3|4|5)\b'   # "Software Engineer 2"
@@ -169,8 +184,17 @@ discovery:
     # - {name: SimplifyJobs/Summer2026-Internships, format: json, url: "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/.github/scripts/listings.json"}
   # Only mine listings updated within this many days (older links go stale).
   max_listing_age_days: 180
+  # Hiring YC startups (yc-oss API) -> names probed for ATS boards. Early-stage
+  # startups are where "Member of Technical Staff" new-grad roles show up.
+  yc:
+    enabled: true
+    url: https://yc-oss.github.io/api/companies/hiring.json
+    us_only: true
+    max_team_size: 500
+    max_names: 600
+    interest_tags: [robotics, ai, machine learning, developer tools, infrastructure, b2b, saas, fintech, aerospace, defense, manufacturing, devops, hard tech, industrials]
   probe:
-    max_probes_per_run: 60
+    max_probes_per_run: 150
     negative_cache_days: 30
     min_interval: 0.5           # seconds between probes to the same host (2 req/s)
     ats_order: [greenhouse, ashby, lever]

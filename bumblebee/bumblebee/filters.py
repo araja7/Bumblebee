@@ -31,8 +31,10 @@ class TitleFilter:
     def check(self, title: str) -> str | None:
         """Return None if the title matches, else a short rejection reason."""
         t = norm_words(title)
+        # "Member of Technical Staff" is not a "staff" level.
+        t_ex = t.replace("technical staff", "technical")
         for kw, rx in self.exclude:
-            if rx.search(t):
+            if rx.search(t_ex):
                 return f"title excludes '{kw}'"
         for rx in self.exclude_patterns:
             if rx.search(title) or rx.search(t):
@@ -162,6 +164,27 @@ def experience_reason(description: str | None, max_years: int) -> str | None:
 
 
 # --------------------------------------------------------------------------
+# New-grad signal (for level-less titles like "Member of Technical Staff")
+# --------------------------------------------------------------------------
+_GRAD_SIGNAL = re.compile(
+    r"\b(new grads?|new graduates?|recent grads?|recent graduates?|university grads?|college grads?|"
+    r"entry level|early career|early in your career|early stage of your career|just graduated|"
+    r"graduating|class of 20\d\d|0\s*(?:-|to)\s*[123]\s*years?|"
+    r"(?:no|zero|0)\s*(?:\+\s*)?(?:years?|yrs?)(?: of)?(?: professional| industry| work)? experience|"
+    r"fresh out of|new to the industry|recent (?:bs|ms|bachelor|master)|"
+    r"(?:bachelor|master|bs|ms)[^.\n]{0,60}\b(?:graduat|20\d\d)|"
+    r"1\s*-\s*2 years?)\b")
+
+
+def has_grad_signal(description: str | None) -> bool:
+    return bool(description and _GRAD_SIGNAL.search(norm_text_for_signal(description)))
+
+
+def norm_text_for_signal(s: str) -> str:
+    return s.lower().replace("–", "-").replace("—", "-").replace("’", "'")
+
+
+# --------------------------------------------------------------------------
 # Locations
 # --------------------------------------------------------------------------
 _LOC_SPLIT = re.compile(r"\s*(?:;|\||/|•|\n|\bor\b|&|\band\b)\s*", re.I)
@@ -270,6 +293,9 @@ class JobFilter:
         self.locations = LocationMatcher(locations_cfg, criteria.get("allow_remote", False))
         self.max_years = criteria.get("max_years_experience", 2)
         self.max_age_hours = criteria.get("max_age_hours", 24)
+        # Titles with no level information; only alert if the description
+        # signals a new-grad / early-career role.
+        self.needs_grad_signal = [_word_re(k) for k in criteria.get("title_needs_grad_signal", [])]
 
     def prefilter(self, job: Job) -> str | None:
         """Cheap checks needing no extra requests. None = still a candidate."""
@@ -287,3 +313,16 @@ class JobFilter:
 
     def experience(self, job: Job) -> str | None:
         return experience_reason(job.description, self.max_years)
+
+    def needs_description_gate(self, job: Job) -> bool:
+        t = norm_words(job.title)
+        # An explicit level keyword in the title ("New Grad") already says enough.
+        if re.search(r"(?<![a-z0-9])(new grad|entry level|university grad|associate|swe i|engineer i)(?![a-z0-9])", t):
+            return False
+        return any(rx.search(t) for rx in self.needs_grad_signal)
+
+    def grad_signal(self, job: Job) -> str | None:
+        """None = fine; else a rejection reason. Only applies to gated titles."""
+        if self.needs_description_gate(job) and not has_grad_signal(job.description):
+            return "level-less title without a new-grad signal in the description"
+        return None

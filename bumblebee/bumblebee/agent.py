@@ -174,11 +174,14 @@ class Agent:
         for job in unseen:
             if not self.filter.posted_after(job, self.cutoff):
                 continue
+            gated = self.filter.needs_description_gate(job)
             try:
                 job.description = source.fetch_description(self.http, job)
             except Exception as e:  # noqa: BLE001 - can't verify YOE; err toward alerting
                 log.warning("description fetch failed; skipping YOE check", job=job.url, error=str(e))
-            if reason := self.filter.experience(job):
+                if gated:  # can't verify it's entry-level; retry next run (left unseen)
+                    continue
+            if reason := self.filter.grad_signal(job) or self.filter.experience(job):
                 s.rejected += 1
                 log.info("rejected", company=job.company, title=job.title, reason=reason)
                 if not self.dry_run:
