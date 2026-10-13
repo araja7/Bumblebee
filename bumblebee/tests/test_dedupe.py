@@ -5,6 +5,7 @@ from bumblebee.agent import Agent
 from bumblebee.notify import ConsoleNotifier
 from bumblebee.sources import ADAPTERS
 from bumblebee.sources.simplify import SimplifySource
+from bumblebee.db import utcnow
 from tests.conftest import NOW, FakeHttp, make_job
 
 GH_LIST = "https://boards-api.greenhouse.io/v1/boards/acme/jobs"
@@ -64,11 +65,16 @@ def test_fingerprint_fallback_across_sources(db):
     assert db.is_seen(b)
 
 
-def test_fingerprint_same_source_different_req_not_duplicate(db):
-    # Two separate "Software Engineer" reqs at one company are distinct postings.
+def test_same_source_repost_is_duplicate_within_window(db):
+    # Taken down and re-posted under a new id: same company + title + location.
     db.mark_seen([make_job(id="1", matched_metros=["new_york"])], "notified")
-    other = make_job(id="2", url="https://job-boards.greenhouse.io/acme/jobs/2", matched_metros=["new_york"])
-    assert not db.is_seen(other)
+    repost = make_job(id="2", url="https://job-boards.greenhouse.io/acme/jobs/2", matched_metros=["new_york"])
+    assert not db.is_seen(repost)                                    # no window: distinct req
+    assert db.is_seen(repost, timedelta(days=30))                    # repost
+    assert not db.is_seen(repost, timedelta(days=30), now=utcnow() + timedelta(days=31))  # reopened later
+    other_title = make_job(id="3", title="Backend Engineer", url="https://job-boards.greenhouse.io/acme/jobs/3",
+                           matched_metros=["new_york"])
+    assert not db.is_seen(other_title, timedelta(days=30))
 
 
 # ---- Agent: "posted since the last message" + dedupe ----------------------------
@@ -109,7 +115,7 @@ def test_job_posted_during_sending_run_is_not_lost(cfg, db):
     notifier = ConsoleNotifier()
     make_agent_at(cfg, db, FakeHttp(routes([gh_job(1, hours_ago=1.5)])), t, notifier).run()
     assert len(notifier.sent) == 1
-    job2 = gh_job(2)
+    job2 = gh_job(2, title="Backend Engineer, New Grad")
     job2["first_published"] = (t + timedelta(minutes=4)).isoformat()
     s = make_agent(cfg, db, FakeHttp(routes([gh_job(1, hours_ago=1.5), job2])), notifier=notifier).run()
     assert s.new_matches == 1 and notifier.sent[-1].endswith("/jobs/2")
@@ -242,3 +248,31 @@ def test_one_failing_source_does_not_crash(cfg, db):
     r[SIMPLIFY] = RuntimeError("feed down")
     s = make_agent(cfg, db, FakeHttp(r), feeds=[SimplifySource(SIMPLIFY)]).run()
     assert s.companies_failed == 1 and s.new_matches == 1
+
+
+def test_agent_skips_repost_with_new_id(cfg, db):
+    active_seeded_company(db)
+    db.set_meta("last_notified_run_at", (NOW - timedelta(hours=5)).isoformat())
+    notifier = ConsoleNotifier()
+    make_agent(cfg, db, FakeHttp(routes([gh_job(1)])), notifier=notifier).run()
+    assert len(notifier.sent) == 1
+    s = make_agent(cfg, db, FakeHttp(routes([gh_job(2)])), notifier=notifier).run()   # same job, new id
+    assert s.new_matches == 0 and not any(m.endswith("/jobs/2") for m in notifier.sent)
+
+
+def test_curated_feed_same_title_openings_all_alert(cfg, db):
+    # Microsoft-style: many "Software Engineer" new-grad reqs, one per team.
+    db.set_meta("feed_seeded:simplify", NOW.isoformat())
+
+    def row(i, mins_ago=60):
+        return {"id": f"ms{i}", "company_name": "Microsoft", "title": "Software Engineer", "active": True,
+                "is_visible": True, "date_posted": NOW.timestamp() - mins_ago * 60, "locations": ["Redmond, WA"],
+                "url": f"https://apply.careers.microsoft.com/careers/job/{i}"}
+
+    notifier = ConsoleNotifier()
+    s = make_agent(cfg, db, FakeHttp({SIMPLIFY: [row(1), row(2)]}), feeds=[SimplifySource(SIMPLIFY)],
+                   notifier=notifier).run()
+    assert s.new_matches == 2                                        # same run
+    s = make_agent(cfg, db, FakeHttp({SIMPLIFY: [row(1), row(2), row(3, mins_ago=5)]}), feeds=[SimplifySource(SIMPLIFY)],
+                   notifier=notifier).run()
+    assert s.new_matches == 1                                        # later run

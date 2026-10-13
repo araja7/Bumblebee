@@ -57,8 +57,10 @@ class Agent:
         self.now = now or datetime.now(timezone.utc)
         self.max_age_override = max_age_override
         self.dead_after = cfg["discovery"].get("dead_after_consecutive_404s", 3)
+        self.repost_window = timedelta(days=cfg.criteria.get("repost_window_days", 30))
+        self.repost_exempt = set(cfg.criteria.get("repost_exempt_sources", []))
         self._run_keys: set[str] = set()
-        self._run_fps: set[str] = set()
+        self._run_fps: dict[str, set[str]] = {}   # fingerprint -> sources
 
     # ------------------------------------------------------------------
     def run(self, seed: bool = False) -> RunSummary:
@@ -188,13 +190,19 @@ class Agent:
                     self.db.mark_seen([job], "rejected", reason)
                 continue
             self._run_keys.add(job.canonical_key)
-            self._run_fps.add(job.fingerprint)
+            self._run_fps.setdefault(job.fingerprint, set()).add(job.source)
             s.matches.append(job)
             log.info("NEW MATCH", company=job.company, title=job.title, location=job.location, url=job.url)
 
     def _seen(self, job: Job) -> bool:
-        return (job.canonical_key in self._run_keys or job.fingerprint in self._run_fps
-                or self.db.is_seen(job))
+        """Same key, or same company + title + location from another source. From
+        the same source it's a repost, unless the source is repost-exempt
+        (a curated list where same-title rows are separate openings)."""
+        exempt = job.source in self.repost_exempt
+        fp_sources = self._run_fps.get(job.fingerprint, set())
+        return (job.canonical_key in self._run_keys
+                or bool(fp_sources - {job.source} if exempt else fp_sources)
+                or self.db.is_seen(job, None if exempt else self.repost_window, self.now))
 
     # ------------------------------------------------------------------
     def _line(self, job: Job, batch: bool = False) -> str:

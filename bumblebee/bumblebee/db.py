@@ -93,15 +93,20 @@ class DB:
         self.conn.commit()
 
     # ---- seen jobs --------------------------------------------------------
-    def is_seen(self, job: Job) -> bool:
+    def is_seen(self, job: Job, repost_window: timedelta | None = None,
+                now: datetime | None = None) -> bool:
         """Seen if the canonical key exists, or if the same company+title+location
-        was already recorded from a *different* source (cross-source duplicate).
-        Same-source fingerprint collisions are distinct postings (e.g. two
-        separate "Software Engineer" reqs) and are not treated as duplicates."""
+        was already recorded from a *different* source (cross-source duplicate),
+        or from the same source within `repost_window`. Some companies take a
+        posting down and re-post it under a new id every day or two; the same
+        title at the same place is the same job to us. After the window, a
+        reopened role alerts again."""
         if self.conn.execute("SELECT 1 FROM seen_jobs WHERE key=?", (job.canonical_key,)).fetchone():
             return True
-        row = self.conn.execute("SELECT 1 FROM seen_jobs WHERE fingerprint=? AND source<>? LIMIT 1",
-                                (job.fingerprint, job.source)).fetchone()
+        # No window: only cross-source matches count ("~" sorts after any timestamp).
+        since = iso((now or utcnow()) - repost_window) if repost_window is not None else "~"
+        row = self.conn.execute("SELECT 1 FROM seen_jobs WHERE fingerprint=? AND (source<>? OR first_seen>=?) LIMIT 1",
+                                (job.fingerprint, job.source, since)).fetchone()
         return row is not None
 
     def mark_seen(self, jobs: Iterable[Job], status: str, reason: str | None = None) -> int:

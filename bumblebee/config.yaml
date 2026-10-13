@@ -125,6 +125,15 @@ criteria:
   max_age_hours: 24
   cutoff_slack_minutes: 60
 
+  # A posting with the same company + title + location as one already seen in
+  # the last N days is a repost (some boards re-list daily under new ids), so
+  # it doesn't alert again.
+  repost_window_days: 30
+  # Except on these curated lists, where same-title rows are separate openings
+  # (e.g. Microsoft lists many "Software Engineer" new-grad reqs for different
+  # teams). Cross-source duplicates are still caught.
+  repost_exempt_sources: [simplify]
+
   allow_remote: false
 
 # On-site/hybrid metros. A posting matches if ANY of its locations matches.
