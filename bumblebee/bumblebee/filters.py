@@ -63,12 +63,14 @@ _EXP_THEN_YEARS = re.compile(  # "Experience: 4+ years", "experience of at least
     rf"{_RANGE}\s*{_YEARS}")
 _EXP_CONTEXT = re.compile(
     r"\b(experience|exp|professional|industry|working|work|building|developing|development|"
-    r"engineering|programming|coding|writing|designing|hands on|hands-on|shipping)\b")
+    r"engineering|programming|coding|writing|designing|hands on|hands-on|shipping|"
+    r"operating|running|managing|maintaining|deploying|leading|administering|using|as an?)\b")
 _NOT_REQUIREMENT_BEFORE = re.compile(
     r"\b(past|last|next|within|every|per|since|founded|for over|for more than|history|anniversary)\b[^.\n]{0,12}$")
-_NOT_REQUIREMENT_AFTER = re.compile(r"^\s*(ago|old|of age|warranty|in business|of history|of growth)\b")
+_NOT_REQUIREMENT_AFTER = re.compile(r"^\s*(ago|old|of age|warranty|in business|of history|of growth|in a row)\b")
 _PREFERRED = re.compile(r"\b(prefer|preferred|preferably|nice to have|nice-to-have|bonus|a plus|"
                         r"is a plus|ideally|desired|desirable|good to have|pluses)\b")
+_REQUIRED_WORD = re.compile(r"\b(required|requires|must|minimum|at least)\b")
 _REQUIRED_HEADING = re.compile(r"\b(required|requirements|minimum|basic|must|qualifications|what you|"
                                r"about you|you have|who you are|you bring|looking for|you will need)\b")
 _DEGREE = re.compile(r"\b(degree|bachelor|bachelors|bs|ba|b s|ms|m s|master|masters|phd|ph d)\b")
@@ -100,8 +102,9 @@ def _min_years(qualifier: str | None, lo: str) -> int:
     return n
 
 
-def _years_in_line(line: str) -> list[int]:
-    found: list[int] = []
+def _years_in_line(line: str) -> list[tuple[int, int]]:
+    """(position, minimum years) for each experience requirement in a line."""
+    found: list[tuple[int, int]] = []
     for m in _YEARS_PHRASE.finditer(line):
         before, after = line[: m.start()], line[m.end():]
         if _NOT_REQUIREMENT_BEFORE.search(before[-40:]) or _NOT_REQUIREMENT_AFTER.search(after):
@@ -116,12 +119,28 @@ def _years_in_line(line: str) -> list[int]:
             continue
         n = _min_years(m.group(1), m.group(2))
         if n <= 30:
-            found.append(n)
+            found.append((m.start(), n))
     for m in _EXP_THEN_YEARS.finditer(line):
         n = int(m.group(1))
         if n <= 30:
-            found.append(n)
+            found.append((m.start(), n))
     return found
+
+
+def _is_preferred_at(line: str, pos: int) -> bool:
+    """Whether the years mentioned at `pos` are a nice-to-have. A preferred
+    word only covers its own clause, or what follows it in the sentence:
+    "4+ years building ML systems, ideally at a startup" still requires 4,
+    "At least 2 years, with 5 years preferred" requires 2, and
+    "Ideally, 3+ years of experience" requires nothing."""
+    s_start = max(line.rfind(c, 0, pos) for c in ".;") + 1
+    s_end = min((i for i in (line.find(c, pos) for c in ".;") if i != -1), default=len(line))
+    c_start = max(s_start, line.rfind(",", s_start, pos) + 1)
+    c_end = min((i for i in (line.find(",", pos, s_end),) if i != -1), default=s_end)
+    clause = line[c_start:c_end]
+    if _REQUIRED_WORD.search(clause):
+        return False
+    return bool(_PREFERRED.search(clause) or _PREFERRED.search(line[s_start:pos]))
 
 
 def parse_required_years(description: str | None) -> int | None:
@@ -148,9 +167,9 @@ def parse_required_years(description: str | None) -> int | None:
                 continue
             if _REQUIRED_HEADING.search(line) and not line_pref:
                 in_preferred = False
-        if in_preferred or line_pref:
+        if in_preferred:
             continue
-        years = _years_in_line(line)
+        years = [n for pos, n in _years_in_line(line) if not (line_pref and _is_preferred_at(line, pos))]
         if years:
             required.append(min(years))
     return max(required) if required else None
@@ -164,7 +183,7 @@ def experience_reason(description: str | None, max_years: int) -> str | None:
 
 
 # --------------------------------------------------------------------------
-# New-grad signal (for level-less titles like "Member of Technical Staff")
+# Level signals in the description (for titles that carry no level)
 # --------------------------------------------------------------------------
 _GRAD_SIGNAL = re.compile(
     r"\b(new grads?|new graduates?|recent grads?|recent graduates?|university grads?|college grads?|"
@@ -174,14 +193,41 @@ _GRAD_SIGNAL = re.compile(
     r"fresh out of|new to the industry|recent (?:bs|ms|bachelor|master)|"
     r"(?:bachelor|master|bs|ms)[^.\n]{0,60}\b(?:graduat|20\d\d)|"
     r"1\s*-\s*2 years?)\b")
-
-
-def has_grad_signal(description: str | None) -> bool:
-    return bool(description and _GRAD_SIGNAL.search(norm_text_for_signal(description)))
+# Open to entry level without being a new-grad role as such.
+_OPEN_LEVEL_SIGNAL = re.compile(
+    r"\b(all levels|all experience levels|any experience level|every level|"
+    r"(?:from|including|welcome) junior|junior (?:through|to|and|or) (?:mid|senior|experienced)|"
+    r"junior (?:level|role|position|candidates)|"
+    r"(?:engineer|developer) (?:i|1)(?= (?:for|on|to|in|at|role|position|with)\b|[,.;)]))\b")
+# "Mentor junior engineers" / "support early-career teammates" describe a
+# senior role, not this one.
+_MENTOR_PHRASE = re.compile(
+    r"\b(?:mentor|coach|onboard|train|manag)\w*\s+(?:[a-z,]+\s+){0,6}(?:junior|early career|entry level|new grad)\w*")
+# The role itself is pitched at experienced engineers. Phrased as who they're
+# hiring, so "work alongside experienced engineers" doesn't count.
+_SENIOR_SIGNAL = re.compile(
+    r"\b(?:hiring|seeking|looking for|searching for|in search of)\s+(?:an?\s+)?(?:highly\s+)?"
+    r"(?:experienced|seasoned|senior|veteran)\b|"
+    r"(?:^|\n)\s*(?:[-*•]\s*)?(?:you are\s+|you're\s+)?an?\s+(?:highly\s+)?(?:experienced|seasoned)\s+[a-z/ ]{0,40}?"
+    r"\b(?:engineer|developer)")
 
 
 def norm_text_for_signal(s: str) -> str:
-    return s.lower().replace("–", "-").replace("—", "-").replace("’", "'")
+    """Lowercase; hyphenated words ("early-career", "entry-level") get a space."""
+    s = s.lower().replace("–", "-").replace("—", "-").replace("’", "'")
+    return re.sub(r"(?<=[a-z])-(?=[a-z])", " ", s)
+
+
+def has_grad_signal(description: str | None, *, open_level: bool = True) -> bool:
+    """New-grad language; with open_level, also "all levels" / "junior" / "Engineer I"."""
+    if not description:
+        return False
+    t = _MENTOR_PHRASE.sub(" ", norm_text_for_signal(description))
+    return bool(_GRAD_SIGNAL.search(t) or (open_level and _OPEN_LEVEL_SIGNAL.search(t)))
+
+
+def has_senior_signal(description: str | None) -> bool:
+    return bool(description and _SENIOR_SIGNAL.search(norm_text_for_signal(description)))
 
 
 # --------------------------------------------------------------------------
@@ -291,11 +337,14 @@ class JobFilter:
         self.criteria = criteria
         self.titles = TitleFilter(criteria)
         self.locations = LocationMatcher(locations_cfg, criteria.get("allow_remote", False))
-        self.max_years = criteria.get("max_years_experience", 2)
+        self.max_years = criteria.get("max_years_experience", 1)
+        self.max_years_new_grad = criteria.get("max_years_experience_if_new_grad", self.max_years)
         self.max_age_hours = criteria.get("max_age_hours", 24)
         # Titles with no level information; only alert if the description
         # signals a new-grad / early-career role.
         self.needs_grad_signal = [_word_re(k) for k in criteria.get("title_needs_grad_signal", [])]
+        self.require_signal = criteria.get("require_entry_level_signal", False)
+        self.entry_level_sources = set(criteria.get("entry_level_sources", []))
 
     def prefilter(self, job: Job) -> str | None:
         """Cheap checks needing no extra requests. None = still a candidate."""
@@ -312,17 +361,46 @@ class JobFilter:
         return is_posted_after(job, cutoff)
 
     def experience(self, job: Job) -> str | None:
-        return experience_reason(job.description, self.max_years)
+        # A posting that explicitly invites new grads may still ask for a
+        # little more ("seeking new graduates ... 2+ years incl. internships").
+        entry = self.is_entry_level_title(job.title) or has_grad_signal(job.description, open_level=False)
+        return experience_reason(job.description, self.max_years_new_grad if entry else self.max_years)
+
+    @staticmethod
+    def is_entry_level_title(title: str) -> bool:
+        """The title itself says the role is entry level."""
+        return bool(_ENTRY_TITLE.search(norm_words(title)))
 
     def needs_description_gate(self, job: Job) -> bool:
-        t = norm_words(job.title)
-        # An explicit level keyword in the title ("New Grad") already says enough.
-        if re.search(r"(?<![a-z0-9])(new grad|entry level|university grad|associate|swe i|engineer i)(?![a-z0-9])", t):
+        if self.is_entry_level_title(job.title):
             return False
+        if self.require_signal and job.source not in self.entry_level_sources:
+            return True
+        t = norm_words(job.title)
         return any(rx.search(t) for rx in self.needs_grad_signal)
 
     def grad_signal(self, job: Job) -> str | None:
         """None = fine; else a rejection reason. Only applies to gated titles."""
-        if self.needs_description_gate(job) and not has_grad_signal(job.description):
-            return "level-less title without a new-grad signal in the description"
+        if not self.needs_description_gate(job) or has_grad_signal(f"{job.title}\n{job.description or ''}"):
+            return None
+        # Explicitly asking for at most max_years ("1+ years") also says entry level.
+        yrs = parse_required_years(job.description)
+        if yrs is not None and yrs <= self.max_years:
+            return None
+        return "no new-grad / entry-level signal in title or description"
+
+    def seniority(self, job: Job) -> str | None:
+        """None = fine; else a rejection reason."""
+        if not self.is_entry_level_title(job.title) and has_senior_signal(job.description):
+            return "description pitches the role at experienced engineers"
         return None
+
+    def entry_level(self, job: Job) -> str | None:
+        """All description-based level checks. None = alert."""
+        return self.experience(job) or self.seniority(job) or self.grad_signal(job)
+
+
+_ENTRY_TITLE = re.compile(
+    r"(?<![a-z0-9])(new grads?|new graduates?|graduate|grad|entry level|university grads?|college grads?|"
+    r"early career|junior|jr|associate|swe i|sde i|engineer i|developer i|engineer 1|developer 1|"
+    r"level 1|class of 20\d\d)(?![a-z0-9])")

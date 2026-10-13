@@ -181,7 +181,7 @@ class Agent:
                 log.warning("description fetch failed; skipping YOE check", job=job.url, error=str(e))
                 if gated:  # can't verify it's entry-level; retry next run (left unseen)
                     continue
-            if reason := self.filter.grad_signal(job) or self.filter.experience(job):
+            if reason := self.filter.entry_level(job):
                 s.rejected += 1
                 log.info("rejected", company=job.company, title=job.title, reason=reason)
                 if not self.dry_run:

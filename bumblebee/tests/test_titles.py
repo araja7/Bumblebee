@@ -122,4 +122,7 @@ def test_mts_requires_grad_signal():
     assert f.grad_signal(_job("Member of Technical Staff", "We hire recent graduates and new grads.")) is None
     assert f.grad_signal(_job("Member of Technical Staff", "Class of 2027 welcome")) is None
     assert f.grad_signal(_job("Member of Technical Staff", "Build distributed systems at scale.")) is not None
-    assert f.grad_signal(_job("Software Engineer", "Build distributed systems.")) is None   # not gated
+    # With require_entry_level_signal, level-less titles are gated too.
+    assert f.grad_signal(_job("Software Engineer", "Build distributed systems.")) is not None
+    assert f.grad_signal(_job("Software Engineer", "We welcome early-career engineers.")) is None
+    assert f.grad_signal(_job("Software Engineer I", "Build distributed systems.")) is None   # level in title

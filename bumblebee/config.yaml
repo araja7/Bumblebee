@@ -85,8 +85,14 @@ criteria:
     # added: intern-equivalents
     - co op
     - coop
+    # added: levels above entry
+    - mid level
+    - midlevel
+    - experienced
+    - founding
   # Titles that carry no seniority; the description must also signal new-grad /
   # early-career ("new grad", "recent graduate", "0-2 years", "class of 2027"...).
+  # Only matters with require_entry_level_signal: false (which gates every title).
   title_needs_grad_signal:
     - member of technical staff
   # Regexes (case-insensitive) that also reject a title.
@@ -97,8 +103,19 @@ criteria:
     - '^(?!.*\b(software|developer|data)\b).*\bquality\b'        # hardware QA, but not "Software Engineer, Data Quality"
 
   # Reject if the description's *required* experience (not "preferred") has a
-  # minimum above this. 2 => "3+ years" or higher is rejected.
-  max_years_experience: 2
+  # minimum above this. 1 => "2+ years" or higher is rejected.
+  max_years_experience: 1
+  # ...unless the title or description explicitly targets new grads, in which
+  # case allow up to this ("Seeking new graduates ... 2+ years incl. internships").
+  max_years_experience_if_new_grad: 2
+
+  # Titles with no level ("Software Engineer, Payments") alert only when the
+  # description signals entry level: "new grad", "early career", "0-2 years",
+  # "class of 2027", "all levels"... Titles that say "New Grad", "Associate",
+  # "Engineer I", etc. skip this check. Sources listed in entry_level_sources
+  # are curated new-grad lists, so their jobs skip it too.
+  require_entry_level_signal: true
+  entry_level_sources: [simplify]
 
   # Alert on jobs posted since the last message you received (and never sent
   # before). Precisely: after the start of the run that sent it, minus

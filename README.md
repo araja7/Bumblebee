@@ -8,7 +8,7 @@ growing the list of companies it watches.
 
 ```
 sources (Greenhouse, Lever, Ashby per company + SimplifyJobs list)
-   -> filters (title, location/remote, posted since last message, years of experience)
+   -> filters (title, location/remote, posted since last message, entry level: years of experience + level signals)
    -> dedupe (SQLite)
    -> notify (email-to-SMS | ntfy.sh | stdout for --dry-run)
 ```
